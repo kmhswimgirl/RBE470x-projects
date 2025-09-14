@@ -5,7 +5,7 @@ sys.path.insert(0, '../bomberman')
 from entity import CharacterEntity
 from colorama import Fore, Back
 
-class TestCharacter(CharacterEntity):
+class TestCharacter2(CharacterEntity):
 
     def do(self, wrld):
         # Your code here
