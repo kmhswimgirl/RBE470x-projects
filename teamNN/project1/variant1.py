@@ -14,6 +14,7 @@ sys.path.insert(1, '../teamNN')
 
 # Uncomment this if you want the interactive character
 from interactivecharacter import InteractiveCharacter
+from character_one import CharacterOne
 
 # Create the game
 g = Game.fromfile('map.txt')
@@ -26,11 +27,17 @@ g = Game.fromfile('map.txt')
 #                               0, 0  # position
 # ))
 
-# Uncomment this if you want the interactive character
-g.add_character(InteractiveCharacter("me", # name
-                                     "C",  # avatar
-                                     0, 0  # position
+# Uncomment this if you want the variant character
+g.add_character(CharacterOne("me", # name
+                              "C",  # avatar
+                              0, 0  # position
 ))
+
+# Uncomment this if you want the interactive character
+# g.add_character(InteractiveCharacter("me", # name
+#                                      "C",  # avatar
+#                                      0, 0  # position
+# ))
 
 # Run!
 
