@@ -1,8 +1,8 @@
 # This is necessary to find the main code
 import sys
-sys.path.insert(0, '../bomberman')
+sys.path.insert(0, '../Bomberman')
 # Import necessary stuff
-from entity import CharacterEntity
+from entity import CharacterEntity # type: ignore
 from colorama import Fore, Back
 
 class InteractiveCharacter(CharacterEntity):
