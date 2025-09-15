@@ -20,8 +20,11 @@ class CharacterOne(CharacterEntity):
             'D','D','D','D', 
             'R',
             'D','D','D','D',
+            'L',
+            'D','D','D','D',
+            'R','R','R','R'
             ]   
-             
+        
         '''
         Hard coded path:
         ---------------
@@ -53,11 +56,11 @@ class CharacterOne(CharacterEntity):
             new_x = self.x + dx
             new_y = self.y + dy
 
-            if wrld.empty_at(new_x, new_y):
+            if wrld.empty_at(new_x, new_y) or wrld.exit_at(new_x, new_y):
                 self.step += 1
             else:
                 self.step += 1
-                dx, dy = 0, 0  # no moving if blocked
+                dx, dy = 0, 0  # no moving if blocked (aka i hardcoded the path incorrectly lmao)
         else:
             dx, dy = 0, 0
 
