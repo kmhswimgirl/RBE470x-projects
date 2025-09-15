@@ -1,6 +1,6 @@
 # This is necessary to find the main code
 import sys
-sys.path.insert(0, '../../bomberman')
+sys.path.insert(0, '../../Bomberman')
 sys.path.insert(1, '..')
 
 # Import necessary stuff
@@ -10,6 +10,8 @@ from monsters.selfpreserving_monster import SelfPreservingMonster
 
 # Import variant 3 character
 from variant3character import AStarCharacter
+
+from testcharacter2 import TestCharacter2
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
@@ -27,9 +29,14 @@ g.add_monster(SelfPreservingMonster("selfpreserving", # name
 ))
 
 # TODO Add your character
-g.add_character(AStarCharacter("me", # name
-                              "C",  # avatar
-                              0, 0  # position
+# g.add_character(AStarCharacter("me", # name
+#                               "C",  # avatar
+#                               0, 0  # position
+# ))
+
+g.add_character(TestCharacter2("me", # name
+                                "C",  # avatar
+                            0, 0  # position
 ))
 
 # Run!
