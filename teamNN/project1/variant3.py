@@ -9,7 +9,7 @@ from game import Game
 from monsters.selfpreserving_monster import SelfPreservingMonster
 
 # Import variant 3 character
-from variant3character import AStarCharacter
+from variant3character import Variant3Character
 
 from testcharacter2 import TestCharacter2
 
@@ -28,15 +28,10 @@ g.add_monster(SelfPreservingMonster("selfpreserving", # name
                                     1                 # detection range
 ))
 
-# TODO Add your character
-# g.add_character(AStarCharacter("me", # name
-#                               "C",  # avatar
-#                               0, 0  # position
-# ))
 
-g.add_character(TestCharacter2("me", # name
-                                "C",  # avatar
-                            0, 0  # position
+g.add_character(Variant3Character("me", # name
+                              "C",  # avatar
+                              0, 0  # position
 ))
 
 # Run!

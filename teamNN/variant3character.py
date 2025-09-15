@@ -8,7 +8,7 @@ from colorama import Fore, Back
 import numpy as np
 import heapq
 
-class AStarCharacter(CharacterEntity):
+class Variant3Character(CharacterEntity):
 
 
     def create_map(self, world) -> (np.ndarray, tuple, tuple):
@@ -42,16 +42,27 @@ class AStarCharacter(CharacterEntity):
                     goal = (x, y)  # Set goal position
                 elif world.monsters_at(x, y):
                     map_array[x][y] = 4  # Monster
+                    # inflate the size of the monster to avoid it, neighbors of 8
+                    # make sure that we dont override any walls or bombs or exits or player
+                    for dx in [-1, 0, 1]:
+                        for dy in [-1, 0, 1]:
+                            nx, ny = x + dx, y + dy
+                            if 0 <= nx < world.width() and 0 <= ny < world.height():
+                                # Only mark as 4 if not wall, bomb, exit, or player
+                                if (not world.wall_at(nx, ny)
+                                    and not world.bomb_at(nx, ny)
+                                    and not world.exit_at(nx, ny)
+                                    and not world.characters_at(nx, ny)):
+                                    map_array[nx][ny] = 4
                 elif world.characters_at(x, y):
                     map_array[x][y] = 5  # Player
                     playerPosition = (x, y) # Set player position
-
                 else:
                     map_array[x][y] = 0  # Empty space
         return map_array, playerPosition, goal
 
     # Plan a path using A* algorithm
-    def plan_path(self, map_array, start, goal) -> list:
+    def plan_path(self, map_array, start, goal) -> list | None:
         '''
         Plan a path using the A* algorithm from start to goal on the given map_array.
         Should return a list of coordinates representing the path.
@@ -80,12 +91,34 @@ class AStarCharacter(CharacterEntity):
 
 
         def heuristic(a, b):
-            # Find the Manhattan distance
+            # Find the Manhattan distance to the goal
             dist = abs(a[0]-b[0]) + abs(a[1]-b[1])
 
-            #find the distance 
+            # Find the minimum distance to any monster
+            min_dist_to_monster = float('inf')
+            for x in range(rows):
+                for y in range(cols):
+                    if map_array[x][y] == 4: # monster or inflated monster cell
+                        d = abs(a[0]-x) + abs(a[1]-y)
+                        if d < min_dist_to_monster:
+                            min_dist_to_monster = d
 
-            return abs(a[0]-b[0]) + abs(a[1]-b[1])
+            # Scale penalty/reward based on distance to monster
+            if min_dist_to_monster <= 5:
+                dist += 100 / (min_dist_to_monster + 1)  # Strong penalty for being very close
+            else:
+                dist -= 100 * min_dist_to_monster  # Reward for being far
+
+            # find the distance to the walls
+            # increase the weight of the distance to the walls to avoid hugging them too closely
+            # for x in range(rows):
+            #     for y in range(cols):
+            #         if map_array[x][y] == 1: # wall
+            #             wall_dist = abs(a[0]-x) + abs(a[1]-y)
+            #             if wall_dist > 0:
+            #                 dist += 1 / wall_dist * 10
+
+            return dist
 
         while open_set:
             _, g, current = heapq.heappop(open_set)
@@ -142,7 +175,7 @@ class AStarCharacter(CharacterEntity):
         # Convert the list of coordinates into movement commands (dx, dy)
         if path:
             moves = self.convert_path_to_moves(path)
-            print("Moves:", moves)  # Debugging output
+            # print("Moves:", moves)  # Debugging output
 
             # Execute the first move in the list
             if moves:
