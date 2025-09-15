@@ -32,40 +32,74 @@ class CharacterOne(CharacterEntity):
                     return (x,y)
         return None
     
+    def in_bounds(self, wrld, x,y):
+        if 0 <= x < wrld.width() & 0 <= y < wrld.height(): 
+            return True
+        else: 
+            return False
+    
     def move_valid(self, wrld, new_x, new_y):
-        if 0 <= new_x < wrld.width() & 0 <= new_y < wrld.height():
+        if self.in_bounds(wrld,new_x, new_y):
             if wrld.empty_at(new_x, new_y) or wrld.exit_at(new_x, new_y):
                 return True
-            else:
+            else: 
                 return False
     
     def manhattan_dist(self, pos1, pos2):
         return abs(pos1[0]-pos2[0]) + abs(pos1[1]-pos2[1])
     
     def eval_position(self,wrld, pos, target):
-        # define position
-        # define "score"
+        '''checks all potential positions and returns the potential score of that position'''
+        # define "score" (init at 0)
+        score = 0
+
+        # penalty weights
+        exit_dist_weight = 10
+        target_weight = 1000
+        monster_weight = 500
+        danger_lvl_weight = 25
 
         # distance to exit (rescore based on dist, closer = better)
+        exit_distance = self.manhattan_dist(pos, target)
+        score -= exit_distance * exit_dist_weight
 
-        #penalties
-            # monsters
-        
+        # exit bonus
+        if pos == target: 
+            score += target_weight
+
+        # penalties (monster is the only one for now)
+            if wrld.monsters_at(pos): score -= monster_weight
+            # maybe have bombs in the future?
+
         # check near by the player (& keep counter?)
+        danger_lvl = 0
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                if dx == 0 and dy == 0:
+                    continue
+                potential_x = dx + pos[0]
+                potential_y = dy + pos[1]
+                if self.in_bounds(wrld, potential_x, potential_y) and wrld.monsters_at(potential_x, potential_y):
+                    danger_lvl += 1
 
-        # caluclate score based on "danger level" or something like that...
-
-
-        # return the calculated world score
-
-        pass
+        # calculate and return score based on "danger level" or something like that...
+        score -= danger_lvl * danger_lvl_weight
+        return score
+        
     
     def minimax_desc(self, wrld,target,depth):
         # potential moves: list[tuple(int)]
-
+        surrounding_moves = [(-1,-1), (0,-1),(1,-1),
+                             (-1, 0), (0, 0),(1,0),
+                             (-1, 1), (0, 1),(1,1)]
+        
         # best move and best score
-
+        best_move = (0,0)
+        best_score = "placeholder" # need super small value (look into syntax)
         # for new position in possible moves
+        for dx, dy in surrounding_moves:
+            new_x = 
+            new_y = 
             # define new_x and new_y
 
             # get score for this move if it is valid (use function above)
