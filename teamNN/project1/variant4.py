@@ -1,12 +1,12 @@
 # This is necessary to find the main code
 import sys
-sys.path.insert(0, '../../bomberman')
+sys.path.insert(0, '../../Bomberman')
 sys.path.insert(1, '..')
 
 # Import necessary stuff
 import random
-from game import Game
-from monsters.selfpreserving_monster import SelfPreservingMonster
+from game import Game #type: ignore
+from monsters.selfpreserving_monster import SelfPreservingMonster #type: ignore
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
@@ -28,4 +28,4 @@ g.add_character(TestCharacter("me", # name
 ))
 
 # Run!
-g.go()
+g.go(0)
