@@ -37,4 +37,4 @@ g.add_character(CharacterFour("me", # name
 ))
 
 # Run!
-g.go(1000)
+g.go(100)

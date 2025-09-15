@@ -6,8 +6,7 @@ sys.path.insert(0, '../Bomberman')
 from entity import CharacterEntity # type: ignore
 from colorama import Fore, Back
 
-class CharacterFour(CharacterEntity):
-
+class CharacterFour(CharacterEntity):    
     def do(self, wrld):
         # Commands
         dx, dy = 0, 0
@@ -15,16 +14,20 @@ class CharacterFour(CharacterEntity):
 
         # find the exit coordinate
         exit_pos = self.find_exit(wrld)
+        if not exit_pos:
+            self.move(dx, dy)
+            return
 
         # use functions to calc next best move using minimax        
-        best_move = self.minimax_decision(wrld, exit_pos, depth=3)
-        dx, dy = best_move
+        best_move = self.minimax_desc(wrld, exit_pos, 2)
+        dx = best_move[0]
+        dy = best_move[1]
 
         # Execute commands
-        self.move(dx, dy)
+        self.move(dx, dy) 
+        print(f"Current: ({self.x}, {self.y}), Target: {exit_pos}, Moving: ({dx}, {dy})")
         if bomb:
             self.place_bomb()
-        pass
 
     def find_exit(self,wrld):
         for x in range(wrld.width()):
@@ -34,7 +37,7 @@ class CharacterFour(CharacterEntity):
         return None
     
     def in_bounds(self, wrld, x,y):
-        if 0 <= x < wrld.width() & 0 <= y < wrld.height(): 
+        if 0 <= x < wrld.width() and 0 <= y < wrld.height(): 
             return True
         else: 
             return False
@@ -45,6 +48,7 @@ class CharacterFour(CharacterEntity):
                 return True
             else: 
                 return False
+        return False
     
     def manhattan_dist(self, pos1, pos2):
         return abs(pos1[0]-pos2[0]) + abs(pos1[1]-pos2[1])
@@ -52,6 +56,7 @@ class CharacterFour(CharacterEntity):
     def eval_position(self,wrld, pos, target):
         '''checks all potential positions and returns the potential score of that position'''
         # define "score" (init at 0)
+        # pos = x, y
         score = 0
 
         # penalty weights
@@ -64,13 +69,14 @@ class CharacterFour(CharacterEntity):
         exit_distance = self.manhattan_dist(pos, target)
         score -= exit_distance * exit_dist_weight
 
+    # penalties (monster is the only one for now)
+        if wrld.monsters_at(pos[0], pos[1]): 
+            score -= monster_weight
+        # maybe have bombs in the future?
+
         # exit bonus
         if pos == target: 
             score += target_weight
-
-        # penalties (monster is the only one for now)
-            if wrld.monsters_at(pos): score -= monster_weight
-            # maybe have bombs in the future?
 
         # check near by the player (& keep counter?)
         danger_lvl = 0
@@ -96,15 +102,16 @@ class CharacterFour(CharacterEntity):
         
         # best move and best score
         best_move = (0,0)
-        best_score = -10000  # need super small value (look into syntax... )
+        best_score = float('-inf')  # need super small value (look into syntax... )
     
         for dx, dy in moveset: # check all surrounding moves
             new_x = dx + self.x
             new_y = dy + self.y
+            
 
             # get score for this move if it is valid (use function above)
             if self.move_valid(wrld, new_x, new_y):
-                score = self.minimax_function(wrld, target, depth - 1,False, (new_x, new_y) ) #TODO: write minimax function (it goes here!) 
+                score = self.minimax_function(wrld, target, depth - 1,False, (new_x, new_y) )
 
                 # statement asking if caluclated move is better than the current best
                 if score > best_score:
@@ -116,8 +123,8 @@ class CharacterFour(CharacterEntity):
     def minimax_function(self, wrld, target, depth, is_player_turn, player_coords):
         # weights / constants
         monster_weight = 100
-        max_score_var = 10000
-        min_score_var = -10000
+        min_score_var = float('inf')
+        max_score_var = float('-inf')
 
         # case 1: player reached exit
         if player_coords == target or depth == 0:
@@ -127,7 +134,7 @@ class CharacterFour(CharacterEntity):
         if is_player_turn:
             max_score = max_score_var
             moveset = [(-1,-1), (0,-1),(1,-1), # if there is a bug it probably came from a typo here
-                       (-1, 0), (0, 0),(1, 0),
+                       (-1, 0), (0, 0), (1, 0),
                        (-1, 1), (0, 1),(1, 1)]
 
             for dx, dy in moveset:
@@ -146,7 +153,7 @@ class CharacterFour(CharacterEntity):
             base_score = self.eval_position(wrld, player_coords, target)
 
             # case A: no change in threat, case B: monster proximity score
-            score_a = self.minimax_function(wrld, target, depth-1, True, player_coords) 
+            score_a = base_score # removed accidental infinite recursion
             score_b = base_score - monster_weight 
 
             min_score = min(score_a, score_b)
