@@ -1,7 +1,6 @@
 # This is necessary to find the main code
 import sys
 sys.path.insert(0, '../Bomberman')
-import math
 
 # Import necessary stuff
 from entity import CharacterEntity # type: ignore
@@ -112,6 +111,7 @@ class CharacterOne(CharacterEntity):
         return best_move
     
     def minimax_function(self, wrld, target, depth, is_player_turn, player_coords):
+        monster_weight = 100
         # case 1: player reached exit
         if player_coords == target or depth == 0:
             return self.eval_position(wrld,player_coords, target)
@@ -127,18 +127,20 @@ class CharacterOne(CharacterEntity):
                 new_x = player_coords[0] + dx
                 new_y = player_coords[1] + dy
 
-
                 if self.move_valid(wrld, new_x, new_y):
                     new_coords = (new_x, new_y)
-                    score = self.minimax_function(wrld, target, depth + 1, False,new_coords) # recursive call (flipped boolean to false)
+                    score = self.minimax_function(wrld, target, depth - 1, False,new_coords) # recursive call (flipped boolean to false)
                     max_score = max(max_score, score)
 
             return max_score
+        else:  # case 3: Monster's turn (minimizing)
+            min_score = "placeholder"
+            base_score = self.eval_position(wrld, player_coords, target)
 
-        # case 3: monster's turn (minimizing) (else)
-            # define min score
-            # evaluate position using player location
-            # calc 2 different scores
-                # one is minimax, the other is base score - "penalty"
+            # case A: no change in threat, case B: monster proximity score
+            score_a = self.minimax_function(wrld, target, depth-1, True, player_coords) 
+            score_b = base_score - monster_weight 
 
-            # find and return worse case
+            min_score = min(score_a, score_b)
+
+            return min_score
