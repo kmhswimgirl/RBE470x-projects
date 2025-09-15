@@ -89,8 +89,8 @@ class CharacterOne(CharacterEntity):
     def minimax_desc(self, wrld, target, depth):
         # potential moves: list[tuple(int)]
         moveset = [(-1,-1), (0,-1),(1,-1), # if there is a bug it probably came from a typo here
-                             (-1, 0), (0, 0),(1, 0),
-                             (-1, 1), (0, 1),(1, 1)]
+                   (-1, 0), (0, 0),(1, 0),
+                   (-1, 1), (0, 1),(1, 1)]
         
         # best move and best score
         best_move = (0,0)
@@ -119,16 +119,21 @@ class CharacterOne(CharacterEntity):
         # case 2: player's turn (maximizing)
         if is_player_turn:
             max_score = "placeholder"
-            moveset = 
+            moveset = [(-1,-1), (0,-1),(1,-1), # if there is a bug it probably came from a typo here
+                       (-1, 0), (0, 0),(1, 0),
+                       (-1, 1), (0, 1),(1, 1)]
 
             for dx, dy in moveset:
+                new_x = player_coords[0] + dx
+                new_y = player_coords[1] + dy
 
 
+                if self.move_valid(wrld, new_x, new_y):
+                    new_coords = (new_x, new_y)
+                    score = self.minimax_function(wrld, target, depth + 1, False,new_coords) # recursive call (flipped boolean to false)
+                    max_score = max(max_score, score)
 
-        # for each possible movement
-            # create new x and new y
-            # confirm valid move
-                # recursive call for minimax (make sure boolean is flipped!, return the max score)
+            return max_score
 
         # case 3: monster's turn (minimizing) (else)
             # define min score
