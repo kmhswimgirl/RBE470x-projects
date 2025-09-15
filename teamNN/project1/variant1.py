@@ -1,19 +1,20 @@
 # This is necessary to find the main code
 import sys
-sys.path.insert(0, '../../bomberman')
+sys.path.insert(0, '../../Bomberman')
 sys.path.insert(1, '..')
 
 # Import necessary stuff
-from game import Game
+from game import Game # type: ignore
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
 
 # Uncomment this if you want the empty test character
-#from testcharacter import TestCharacter
+# from testcharacter import TestCharacter
 
 # Uncomment this if you want the interactive character
 from interactivecharacter import InteractiveCharacter
+from character_one import CharacterOne
 
 # Create the game
 g = Game.fromfile('map.txt')
@@ -26,16 +27,22 @@ g = Game.fromfile('map.txt')
 #                               0, 0  # position
 # ))
 
-# Uncomment this if you want the interactive character
-g.add_character(InteractiveCharacter("me", # name
-                                     "C",  # avatar
-                                     0, 0  # position
+# Uncomment this if you want the variant character
+g.add_character(CharacterOne("me", # name
+                              "C",  # avatar
+                              0, 0  # position
 ))
+
+# Uncomment this if you want the interactive character
+# g.add_character(InteractiveCharacter("me", # name
+#                                      "C",  # avatar
+#                                      0, 0  # position
+# ))
 
 # Run!
 
 # Use this if you want to press ENTER to continue at each step
-# g.go(0)
+#g.go(0)
 
 # Use this if you want to proceed automatically
 g.go(1)
