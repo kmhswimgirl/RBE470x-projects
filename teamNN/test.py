@@ -27,7 +27,7 @@ output_lines = []
 
 for i in range(NUM_RUNS):
     process = subprocess.Popen(
-        ["python3", "variant2.py"],
+        ["python3", f"variant{VARIANT}.py"],
         cwd="project1",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
