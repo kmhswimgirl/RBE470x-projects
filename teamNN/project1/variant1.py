@@ -10,10 +10,13 @@ from game import Game
 sys.path.insert(1, '../teamNN')
 
 # Uncomment this if you want the empty test character
-#from testcharacter import TestCharacter
+from testcharacter import TestCharacter
 
 # Uncomment this if you want the interactive character
 from interactivecharacter import InteractiveCharacter
+
+# Add the custom character
+from astarcharacter import AStarCharacter
 
 # Create the game
 g = Game.fromfile('map.txt')
@@ -32,10 +35,16 @@ g.add_character(InteractiveCharacter("me", # name
                                      0, 0  # position
 ))
 
+# add the custom A* character
+g.add_character(AStarCharacter("me", # name
+                                "C",  # avatar
+                                0, 0  # position
+))
+
 # Run!
 
 # Use this if you want to press ENTER to continue at each step
-# g.go(0)
+g.go(0)
 
 # Use this if you want to proceed automatically
-g.go(1)
+# g.go(1)
