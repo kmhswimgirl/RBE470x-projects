@@ -6,7 +6,7 @@ sys.path.insert(0, '../Bomberman')
 from entity import CharacterEntity # type: ignore
 from colorama import Fore, Back
 
-class CharacterOne(CharacterEntity):
+class CharacterFour(CharacterEntity):
 
     def do(self, wrld):
         # Commands
@@ -16,7 +16,9 @@ class CharacterOne(CharacterEntity):
         # find the exit coordinate
         exit_pos = self.find_exit(wrld)
 
-        # minimax calculates next best move (best_move = )
+        # use functions to calc next best move using minimax        
+        best_move = self.minimax_decision(wrld, exit_pos, depth=3)
+        dx, dy = best_move
 
         # Execute commands
         self.move(dx, dy)
@@ -86,6 +88,7 @@ class CharacterOne(CharacterEntity):
         return score
         
     def minimax_desc(self, wrld, target, depth):
+
         # potential moves: list[tuple(int)]
         moveset = [(-1,-1), (0,-1),(1,-1), # if there is a bug it probably came from a typo here
                    (-1, 0), (0, 0),(1, 0),
@@ -93,7 +96,7 @@ class CharacterOne(CharacterEntity):
         
         # best move and best score
         best_move = (0,0)
-        best_score = "placeholder" # need super small value (look into syntax)
+        best_score = -10000  # need super small value (look into syntax... )
     
         for dx, dy in moveset: # check all surrounding moves
             new_x = dx + self.x
@@ -101,7 +104,7 @@ class CharacterOne(CharacterEntity):
 
             # get score for this move if it is valid (use function above)
             if self.move_valid(wrld, new_x, new_y):
-                score = "placeholder" #TODO: write minimax function (it goes here!) 
+                score = self.minimax_function(wrld, target, depth - 1,False, (new_x, new_y) ) #TODO: write minimax function (it goes here!) 
 
                 # statement asking if caluclated move is better than the current best
                 if score > best_score:
@@ -111,14 +114,18 @@ class CharacterOne(CharacterEntity):
         return best_move
     
     def minimax_function(self, wrld, target, depth, is_player_turn, player_coords):
+        # weights / constants
         monster_weight = 100
+        max_score_var = 10000
+        min_score_var = -10000
+
         # case 1: player reached exit
         if player_coords == target or depth == 0:
             return self.eval_position(wrld,player_coords, target)
         
         # case 2: player's turn (maximizing)
         if is_player_turn:
-            max_score = "placeholder"
+            max_score = max_score_var
             moveset = [(-1,-1), (0,-1),(1,-1), # if there is a bug it probably came from a typo here
                        (-1, 0), (0, 0),(1, 0),
                        (-1, 1), (0, 1),(1, 1)]
@@ -127,14 +134,15 @@ class CharacterOne(CharacterEntity):
                 new_x = player_coords[0] + dx
                 new_y = player_coords[1] + dy
 
-                if self.move_valid(wrld, new_x, new_y):
+                if self.move_valid(wrld, new_x, new_y): 
                     new_coords = (new_x, new_y)
                     score = self.minimax_function(wrld, target, depth - 1, False,new_coords) # recursive call (flipped boolean to false)
                     max_score = max(max_score, score)
 
             return max_score
-        else:  # case 3: Monster's turn (minimizing)
-            min_score = "placeholder"
+        
+        else:  # case 3: monster's turn (minimizing)
+            min_score = min_score_var
             base_score = self.eval_position(wrld, player_coords, target)
 
             # case A: no change in threat, case B: monster proximity score
