@@ -12,7 +12,7 @@ class CharacterOne(CharacterEntity):
     def do(self, wrld):
         # Commands
         dx, dy = 0, 0
-        bomb = False
+        bomb = False # don't need to worry about that rn
 
         # find the exit coordinate
         exit_pos = self.find_exit(wrld)
@@ -86,34 +86,44 @@ class CharacterOne(CharacterEntity):
         score -= danger_lvl * danger_lvl_weight
         return score
         
-    
-    def minimax_desc(self, wrld,target,depth):
+    def minimax_desc(self, wrld, target, depth):
         # potential moves: list[tuple(int)]
-        surrounding_moves = [(-1,-1), (0,-1),(1,-1),
-                             (-1, 0), (0, 0),(1,0),
-                             (-1, 1), (0, 1),(1,1)]
+        moveset = [(-1,-1), (0,-1),(1,-1), # if there is a bug it probably came from a typo here
+                             (-1, 0), (0, 0),(1, 0),
+                             (-1, 1), (0, 1),(1, 1)]
         
         # best move and best score
         best_move = (0,0)
         best_score = "placeholder" # need super small value (look into syntax)
-        # for new position in possible moves
-        for dx, dy in surrounding_moves:
-            new_x = 
-            new_y = 
-            # define new_x and new_y
+    
+        for dx, dy in moveset: # check all surrounding moves
+            new_x = dx + self.x
+            new_y = dy + self.y
 
             # get score for this move if it is valid (use function above)
+            if self.move_valid(wrld, new_x, new_y):
+                score = "placeholder" #TODO: write minimax function (it goes here!) 
 
-            # statement asking if caluclated move is better than the current best
+                # statement asking if caluclated move is better than the current best
+                if score > best_score:
+                    best_score = score
+                    best_move = (dx, dy)
 
-         # return the best move
-        pass
+        return best_move
     
-    def minimax_function(self, wrld, target, depth, is_max, player_coords):
-        # case 1: player reached exit (depth == 0 || player coords == target (exit))
-            # evaluate position
-
+    def minimax_function(self, wrld, target, depth, is_player_turn, player_coords):
+        # case 1: player reached exit
+        if player_coords == target or depth == 0:
+            return self.eval_position(wrld,player_coords, target)
+        
         # case 2: player's turn (maximizing)
+        if is_player_turn:
+            max_score = "placeholder"
+            moveset = 
+
+            for dx, dy in moveset:
+
+
 
         # for each possible movement
             # create new x and new y
@@ -127,4 +137,3 @@ class CharacterOne(CharacterEntity):
                 # one is minimax, the other is base score - "penalty"
 
             # find and return worse case
-        pass
