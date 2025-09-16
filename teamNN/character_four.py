@@ -5,12 +5,13 @@ sys.path.insert(0, '../Bomberman')
 # Import necessary stuff
 from entity import CharacterEntity # type: ignore
 from colorama import Fore, Back
+import heapq
 
 class CharacterFour(CharacterEntity):    
     def do(self, wrld):
         # Commands
         dx, dy = 0, 0
-        bomb = False # don't need to worry about that rn
+        bomb = False
 
         # find the exit coordinate
         exit_pos = self.find_exit(wrld)
@@ -18,16 +19,95 @@ class CharacterFour(CharacterEntity):
             self.move(dx, dy)
             return
 
-        # use functions to calc next best move using minimax        
-        best_move = self.minimax_desc(wrld, exit_pos, 2)
-        dx = best_move[0]
-        dy = best_move[1]
+        path = self.a_star(wrld, (self.x, self.y), exit_pos)
+        
+        if path and len(path) > 1:
+            next_pos = path[1]  # path[0] is current position
+            dx = next_pos[0] - self.x
+            dy = next_pos[1] - self.y
+        else:
+            dx, dy = 0, 0
 
-        # Execute commands
         self.move(dx, dy) 
         print(f"Current: ({self.x}, {self.y}), Target: {exit_pos}, Moving: ({dx}, {dy})")
+
         if bomb:
             self.place_bomb()
+
+    def a_star(self, wrld, start, goal):
+        
+        open_set = [(0, 0, start)]
+        heapq.heapify(open_set)
+        
+        closed_set = set()
+        came_from = {}
+        g_score = {start: 0}
+        f_score = {start: self.heuristic(start, goal)}
+        
+        while open_set:
+            current_f, current_g, current = heapq.heappop(open_set)
+            
+            if current in closed_set:
+                continue
+                
+            closed_set.add(current)
+            
+            if current == goal:
+                return self.reconstruct_path(came_from, current)
+            
+            neighbors = [
+                (current[0] + dx, current[1] + dy)
+                for dx, dy in [(-1,-1), (-1,0), (-1,1), (0,-1), (0,1), (1,-1), (1,0), (1,1)]
+            ]
+            
+            for neighbor in neighbors:
+                if neighbor in closed_set:
+                    continue
+                    
+                if not self.is_valid_position(wrld, neighbor[0], neighbor[1]):
+                    continue
+                
+                tentative_g = g_score[current] + self.movement_cost(current, neighbor)
+                
+                if neighbor not in g_score or tentative_g < g_score[neighbor]:
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g
+                    f_score[neighbor] = tentative_g + self.heuristic(neighbor, goal)
+                    
+                    heapq.heappush(open_set, (f_score[neighbor], tentative_g, neighbor))
+        
+        return None
+
+    def heuristic(self, pos1, pos2):
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
+
+    def movement_cost(self, from_pos, to_pos):
+        dx = abs(to_pos[0] - from_pos[0])
+        dy = abs(to_pos[1] - from_pos[1])
+        
+        if dx == 1 and dy == 1:
+            return 1.4  # diagonals
+        else:
+            return 1.0  # N, E, S, W
+
+    def is_valid_position(self, wrld, x, y):
+        if not self.in_bounds(wrld, x, y):
+            return False
+        
+        if wrld.empty_at(x, y) or wrld.exit_at(x, y):
+            return True
+            
+        return False
+
+    def reconstruct_path(self, came_from, current):
+        path = [current]
+        
+        while current in came_from:
+            current = came_from[current]
+            path.append(current)
+        
+        path.reverse()
+        return path
 
     def find_exit(self,wrld):
         for x in range(wrld.width()):
@@ -37,125 +117,9 @@ class CharacterFour(CharacterEntity):
         return None
     
     def in_bounds(self, wrld, x,y):
-        if 0 <= x < wrld.width() and 0 <= y < wrld.height(): 
-            return True
-        else: 
-            return False
+        return 0 <= x < wrld.width() and 0 <= y < wrld.height()
     
     def move_valid(self, wrld, new_x, new_y):
         if self.in_bounds(wrld,new_x, new_y):
-            if wrld.empty_at(new_x, new_y) or wrld.exit_at(new_x, new_y):
-                return True
-            else: 
-                return False
+            return wrld.empty_at(new_x, new_y) or wrld.exit_at(new_x, new_y)
         return False
-    
-    def manhattan_dist(self, pos1, pos2):
-        return abs(pos1[0]-pos2[0]) + abs(pos1[1]-pos2[1])
-    
-    def eval_position(self,wrld, pos, target):
-        '''checks all potential positions and returns the potential score of that position'''
-        # define "score" (init at 0)
-        # pos = x, y
-        score = 0
-
-        # penalty weights
-        exit_dist_weight = 10
-        target_weight = 1000
-        monster_weight = 500
-        danger_lvl_weight = 25
-
-        # distance to exit (rescore based on dist, closer = better)
-        exit_distance = self.manhattan_dist(pos, target)
-        score -= exit_distance * exit_dist_weight
-
-    # penalties (monster is the only one for now)
-        if wrld.monsters_at(pos[0], pos[1]): 
-            score -= monster_weight
-        # maybe have bombs in the future?
-
-        # exit bonus
-        if pos == target: 
-            score += target_weight
-
-        # check near by the player (& keep counter?)
-        danger_lvl = 0
-        for dx in [-1, 0, 1]:
-            for dy in [-1, 0, 1]:
-                if dx == 0 and dy == 0:
-                    continue
-                potential_x = dx + pos[0]
-                potential_y = dy + pos[1]
-                if self.in_bounds(wrld, potential_x, potential_y) and wrld.monsters_at(potential_x, potential_y):
-                    danger_lvl += 1
-
-        # calculate and return score based on "danger level" or something like that...
-        score -= danger_lvl * danger_lvl_weight
-        return score
-        
-    def minimax_desc(self, wrld, target, depth):
-
-        # potential moves: list[tuple(int)]
-        moveset = [(-1,-1), (0,-1),(1,-1), # if there is a bug it probably came from a typo here
-                   (-1, 0), (0, 0),(1, 0),
-                   (-1, 1), (0, 1),(1, 1)]
-        
-        # best move and best score
-        best_move = (0,0)
-        best_score = float('-inf')  # need super small value (look into syntax... )
-    
-        for dx, dy in moveset: # check all surrounding moves
-            new_x = dx + self.x
-            new_y = dy + self.y
-            
-
-            # get score for this move if it is valid (use function above)
-            if self.move_valid(wrld, new_x, new_y):
-                score = self.minimax_function(wrld, target, depth - 1,False, (new_x, new_y) )
-
-                # statement asking if caluclated move is better than the current best
-                if score > best_score:
-                    best_score = score
-                    best_move = (dx, dy)
-
-        return best_move
-    
-    def minimax_function(self, wrld, target, depth, is_player_turn, player_coords):
-        # weights / constants
-        monster_weight = 100
-        min_score_var = float('inf')
-        max_score_var = float('-inf')
-
-        # case 1: player reached exit
-        if player_coords == target or depth == 0:
-            return self.eval_position(wrld,player_coords, target)
-        
-        # case 2: player's turn (maximizing)
-        if is_player_turn:
-            max_score = max_score_var
-            moveset = [(-1,-1), (0,-1),(1,-1), # if there is a bug it probably came from a typo here
-                       (-1, 0), (0, 0), (1, 0),
-                       (-1, 1), (0, 1),(1, 1)]
-
-            for dx, dy in moveset:
-                new_x = player_coords[0] + dx
-                new_y = player_coords[1] + dy
-
-                if self.move_valid(wrld, new_x, new_y): 
-                    new_coords = (new_x, new_y)
-                    score = self.minimax_function(wrld, target, depth - 1, False,new_coords) # recursive call (flipped boolean to false)
-                    max_score = max(max_score, score)
-
-            return max_score
-        
-        else:  # case 3: monster's turn (minimizing)
-            min_score = min_score_var
-            base_score = self.eval_position(wrld, player_coords, target)
-
-            # case A: no change in threat, case B: monster proximity score
-            score_a = base_score # removed accidental infinite recursion
-            score_b = base_score - monster_weight 
-
-            min_score = min(score_a, score_b)
-
-            return min_score
