@@ -11,11 +11,10 @@ from monsters.selfpreserving_monster import SelfPreservingMonster
 # Import variant 3 character
 from variant3character import Variant3Character
 
-from testcharacter2 import TestCharacter2
+from testcharacterB5 import TestCharacter
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
-from testcharacter import TestCharacter
 
 # Create the game
 # choose a random seed for consistent behavior
@@ -29,7 +28,7 @@ g.add_monster(SelfPreservingMonster("selfpreserving", # name
 ))
 
 
-g.add_character(Variant3Character("me", # name
+g.add_character(TestCharacter("me", # name
                               "C",  # avatar
                               0, 0  # position
 ))

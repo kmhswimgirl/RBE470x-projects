@@ -20,7 +20,7 @@ from character_one import CharacterOne
 from astarcharacter import AStarCharacter
 
 # Create the game
-g = Game.fromfile('map3.txt')
+g = Game.fromfile('map.txt')
 
 # TODO Add your character
 
@@ -39,7 +39,7 @@ g = Game.fromfile('map3.txt')
 # add the custom A* character
 g.add_character(AStarCharacter("me", # name
                                 "C",  # avatar
-                                1, 8  # position
+                                0, 0  # position
 ))
 
 # Uncomment this if you want the interactive character
