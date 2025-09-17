@@ -4,16 +4,17 @@ sys.path.insert(0, '../../Bomberman')
 sys.path.insert(1, '..')
 
 # Import necessary stuff
-from game import Game
+from game import Game # type: ignore
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
 
 # Uncomment this if you want the empty test character
-from testcharacter import TestCharacter
+# from testcharacter import TestCharacter
 
 # Uncomment this if you want the interactive character
 from interactivecharacter import InteractiveCharacter
+from character_one import CharacterOne
 
 # Add the custom character
 from astarcharacter import AStarCharacter
@@ -40,6 +41,12 @@ g.add_character(AStarCharacter("me", # name
                                 "C",  # avatar
                                 1, 8  # position
 ))
+
+# Uncomment this if you want the interactive character
+# g.add_character(InteractiveCharacter("me", # name
+#                                      "C",  # avatar
+#                                      0, 0  # position
+# ))
 
 # Run!
 

@@ -181,5 +181,6 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# my venv environment
+.bomberman
 # End of https://www.gitignore.io/api/linux,macos,python,pycharm,windows
-

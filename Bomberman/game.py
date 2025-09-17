@@ -7,13 +7,13 @@ import math
 class Game:
     """Game class"""
 
-    def __init__(self, width, height, max_time, bomb_time, expl_duration, expl_range, sprite_dir="../../bomberman/sprites/"):
+    def __init__(self, width, height, max_time, bomb_time, expl_duration, expl_range, sprite_dir="../../Bomberman/sprites/"):
         self.world = RealWorld.from_params(width, height, max_time, bomb_time, expl_duration, expl_range)
         self.sprite_dir = sprite_dir
         self.load_gui(width, height)
 
     @classmethod
-    def fromfile(cls, fname, sprite_dir="../../bomberman/sprites/"):
+    def fromfile(cls, fname, sprite_dir="../../Bomberman/sprites/"):
         with open(fname, 'r') as fd:
             # First lines are parameters
             max_time = int(fd.readline().split()[1])
