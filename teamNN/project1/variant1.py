@@ -4,7 +4,7 @@ sys.path.insert(0, '../../Bomberman')
 sys.path.insert(1, '..')
 
 # Import necessary stuff
-from Bomberman.game import Game
+from game import Game
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
@@ -19,7 +19,7 @@ from interactivecharacter import InteractiveCharacter
 from astarcharacter import AStarCharacter
 
 # Create the game
-g = Game.fromfile('map.txt')
+g = Game.fromfile('map3.txt')
 
 # TODO Add your character
 
@@ -29,22 +29,22 @@ g = Game.fromfile('map.txt')
 #                               0, 0  # position
 # ))
 
-# Uncomment this if you want the interactive character
-g.add_character(InteractiveCharacter("me", # name
-                                     "C",  # avatar
-                                     0, 0  # position
-))
+# # Uncomment this if you want the interactive character
+# g.add_character(InteractiveCharacter("me", # name
+#                                      "C",  # avatar
+#                                      0, 0  # position
+# ))
 
 # add the custom A* character
 g.add_character(AStarCharacter("me", # name
                                 "C",  # avatar
-                                0, 0  # position
+                                1, 8  # position
 ))
 
 # Run!
 
 # Use this if you want to press ENTER to continue at each step
-g.go(0)
+#g.go(0)
 
 # Use this if you want to proceed automatically
-# g.go(1)
+g.go(1)
