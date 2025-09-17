@@ -98,7 +98,7 @@ class CharacterFour(CharacterEntity):
                     distance_to_monster = abs(pos[0] - x) + abs(pos[1] - y) # calc normal dist to monster
                     
                     # scale penalties based on distance, since i want a safe zone radius r = 2, exponentially tax the distances =< 2
-                    map_penalty = {0: 50000, 1: 20000, 2: 5000, 3: 100, 4: 20, 5: 5}
+                    map_penalty = {0: 60000, 1: 20000, 2: 5000, 3: 100, 4: 20, 5: 5}
                     monster_penalty += map_penalty.get(distance_to_monster, 0)    
                     
                     predicted_monster_moves = self.predict_monster_movement(
@@ -109,11 +109,11 @@ class CharacterFour(CharacterEntity):
                     for future_monster_pos in predicted_monster_moves:
                         future_distance = abs(pos[0] - future_monster_pos[0]) + abs(pos[1] - future_monster_pos[1])
                         if future_distance == 0:
-                            future_penalty += 25000  # same square
+                            future_penalty += 40000  # same square
                         elif future_distance == 1:
-                            future_penalty += 10000  # adjacent
+                            future_penalty += 15000  # adjacent
                         elif future_distance == 2:
-                            future_penalty += 2500   # under rad = 2
+                            future_penalty += 2550   # under rad = 2
                         elif future_distance == 3:
                             future_penalty += 200    # not that bad of a threat
                     
@@ -148,7 +148,6 @@ class CharacterFour(CharacterEntity):
         return max(0, total_heuristic)
 
     def cost_with_monsters(self, wrld, from_pos, to_pos):
-
         # base movement cost
         dx = abs(to_pos[0] - from_pos[0])
         dy = abs(to_pos[1] - from_pos[1])
@@ -264,6 +263,4 @@ class CharacterFour(CharacterEntity):
                 esc_distance = abs(esc_x - monster_pos[0]) + abs(esc_y - monster_pos[1])
                 if esc_distance >= 3:  # determined to be safe esc route
                     esc_pos.append((esc_x, esc_y))
-        
-         
         return len(esc_pos) < 2
