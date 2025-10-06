@@ -12,15 +12,15 @@ from entity import CharacterEntity  # from Bomberman engine
 # ---------------- Configuration ---------------- #
 TRAINING = True          # <-- Flip this to False when fully trained
 ALPHA = 0.1              # learning rate
-GAMMA = 0.9              # discount factor
+GAMMA = 0.95              # discount factor
 EPSILON = 0.15           # exploration probability during training
 WEIGHT_FILE = "weights.json"
 
 R_EXIT = +500.0
 R_DEATH = -1200.0
 R_STEP = -1.0
-R_BOMB_WALL = +40.0
-R_CLEAR_PATH = +30.0
+R_BOMB_WALL = +100.0
+R_CLEAR_PATH = +100.0
 R_MONSTER_KILL = +300.0
 
 DIRS8 = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if not (dx == 0 and dy == 0)]
@@ -198,3 +198,4 @@ class ApproxQLearningCharacter(CharacterEntity):
         with open(WEIGHT_FILE) as f:
             data = json.load(f)
         self.weights = defaultdict(float, {k: float(v) for k,v in data.items()})
+
