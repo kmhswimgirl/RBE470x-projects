@@ -16,12 +16,13 @@ GAMMA = 0.95              # discount factor
 EPSILON = 0.15           # exploration probability during training
 WEIGHT_FILE = "weights.json"
 
-R_EXIT = +500.0
-R_DEATH = -1200.0
-R_STEP = -1.0
-R_BOMB_WALL = +100.0
-R_CLEAR_PATH = +100.0
-R_MONSTER_KILL = +300.0
+R_EXIT = +500.0 # Reward for reaching exit
+R_DEATH = -1200.0 # Penalty for dying
+R_STEP = -1.0 # Small penalty for each step taken
+R_BOMB_WALL = +50.0 # Reward for bombing a wall
+R_CLEAR_PATH = +200.0 # Reward for clearing a path
+R_MONSTER_KILL = +300.0 # Reward for killing a monster
+R_BOMB_CLEAR_PATH = +100.0 # Reward for increasing reachable cells
 
 DIRS8 = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if not (dx == 0 and dy == 0)]
 DIRS9 = [(0, 0)] + DIRS8
@@ -39,6 +40,17 @@ def neighbors8(x, y, wrld):
             yield nx, ny
 
 def flood_to_exit(wrld):
+    """
+    Compute the distance from each cell to the nearest exit using multi-source BFS.
+    Parameters:
+    - wrld: The game world object.
+    Returns:
+    - A 2D list of distances where dist[x][y] is the distance from (x, y) to the nearest exit.
+      If a cell is unreachable, its distance is INF.
+
+    """
+
+
     W, H = wrld.width(), wrld.height()
     dist = [[INF]*H for _ in range(W)]
     q = deque()
@@ -56,6 +68,16 @@ def flood_to_exit(wrld):
     return dist
 
 def path_exists_to_exit(wrld, sx, sy):
+    """
+    Check if there is a path from (sx, sy) to any exit in the world.
+
+    Parameters:
+    - wrld: The game world object.
+    - sx, sy: Starting coordinates.
+
+    Returns:
+    - True if a path exists to an exit, False otherwise.
+    """
     seen, q = set(), deque([(sx, sy)])
     while q:
         x, y = q.popleft()
@@ -65,6 +87,26 @@ def path_exists_to_exit(wrld, sx, sy):
                 seen.add((nx, ny))
                 q.append((nx, ny))
     return False
+
+def reachable_cells(sx, sy, wrld):
+    """
+    Find the number of cells reachable from (sx, sy) without crossing walls.
+    Parameters:
+    - sx, sy: Starting coordinates.
+    - wrld: The game world object.
+
+    Returns:
+    - number of total reachable cells
+    """
+    seen, q = set(), deque([(sx, sy)])
+    seen.add((sx, sy))
+    while q:
+        x, y = q.popleft()
+        for nx, ny in neighbors8(x, y, wrld):
+            if (nx, ny) not in seen:
+                seen.add((nx, ny))
+                q.append((nx, ny))
+    return len(seen)
 
 def immediate_hazard(x, y, wrld):
     if wrld.explosion_at(x, y): return True
@@ -168,6 +210,16 @@ class ApproxQLearningCharacter(CharacterEntity):
 
         reward = R_STEP
         atype, _, _ = prev_action
+
+
+        # --- Reachability improvement reward ---
+        if me_prev and me_curr:
+            before = reachable_cells(me_prev.x, me_prev.y, prev_wrld)
+            after  = reachable_cells(me_curr.x, me_curr.y, curr_wrld)
+            delta  = after - before
+            if delta > 0:
+                reward += R_BOMB_CLEAR_PATH * delta  # scaled by gain in mobility
+
         if atype == "bomb":
             # Reward wall destruction
             wb = sum(prev_wrld.wall_at(x,y) for x in range(prev_wrld.width()) for y in range(prev_wrld.height()))
@@ -180,6 +232,7 @@ class ApproxQLearningCharacter(CharacterEntity):
             mb = sum(bool(prev_wrld.monsters_at(x,y)) for x in range(prev_wrld.width()) for y in range(prev_wrld.height()))
             ma = sum(bool(curr_wrld.monsters_at(x,y)) for x in range(curr_wrld.width()) for y in range(curr_wrld.height()))
             if ma < mb: reward += R_MONSTER_KILL*(mb-ma)
+
         return reward
 
     def _should_offer_bomb(self, wrld):
