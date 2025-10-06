@@ -8,6 +8,7 @@
 import os, json, random
 from collections import defaultdict, deque
 from entity import CharacterEntity  # from Bomberman engine
+import math
 
 # ---------------- Configuration ---------------- #
 TRAINING = True          # <-- Flip this to False when fully trained
@@ -17,12 +18,13 @@ EPSILON = 0.15           # exploration probability during training
 WEIGHT_FILE = "weights.json"
 
 R_EXIT = +500.0 # Reward for reaching exit
-R_DEATH = -1200.0 # Penalty for dying
+R_DEATH = -3000.0 # Penalty for dying
 R_STEP = -1.0 # Small penalty for each step taken
 R_BOMB_WALL = +50.0 # Reward for bombing a wall
-R_CLEAR_PATH = +200.0 # Reward for clearing a path
+R_CLEAR_PATH = +300.0 # Reward for clearing a path
 R_MONSTER_KILL = +300.0 # Reward for killing a monster
-R_BOMB_CLEAR_PATH = +100.0 # Reward for increasing reachable cells
+R_BOMB_CLEAR_PATH = +150.0 # Reward for increasing reachable cells
+R_MOVE_TOWARDS_EXIT = +100.00 # Reward for moving closer to exit
 
 DIRS8 = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if not (dx == 0 and dy == 0)]
 DIRS9 = [(0, 0)] + DIRS8
@@ -49,7 +51,6 @@ def flood_to_exit(wrld):
       If a cell is unreachable, its distance is INF.
 
     """
-
 
     W, H = wrld.width(), wrld.height()
     dist = [[INF]*H for _ in range(W)]
@@ -127,7 +128,7 @@ class ApproxQLearningCharacter(CharacterEntity):
         self.prev_features = None
         self.prev_action = None
         self.prev_wrld = None
-        self._dist_exit = 1000, 1000
+        self._dist_exit = None
 
     def do(self, wrld):
         """Main loop called every tick by Game.go()."""
@@ -191,14 +192,59 @@ class ApproxQLearningCharacter(CharacterEntity):
         atype, ax, ay = action
         me = wrld.me(self)
         feats = defaultdict(float)
-        tx, ty = me.x+ax, me.y+ay
+
+        # Target cell
+        tx, ty = me.x + ax, me.y + ay
         feats["bias"] = 1.0
+
+        # Distance-based
         d = self._dist_exit[tx][ty]
-        feats["inv_exit_dist"] = 1.0/(1.0 + (d if d < INF else 9999))
+        feats["inv_exit_dist"] = 1.0 / (1.0 + (d if d < INF else 9999))
+
+        # Contextual
         feats["blocked"] = 1.0 if not path_exists_to_exit(wrld, me.x, me.y) else 0.0
         feats["is_bomb"] = 1.0 if atype == "bomb" else 0.0
         feats["hazard"] = 1.0 if immediate_hazard(tx, ty, wrld) else 0.0
+
+        # Near wall
+        feats["near_wall"] = 1.0 if any(
+            wrld.wall_at(nx, ny) for nx, ny in neighbors8(me.x, me.y, wrld)
+        ) else 0.0
+
+        # Near enemy
+        enemy_close = False
+        for dx in range(-3, 4):
+            for dy in range(-3, 4):
+                nx, ny = me.x + dx, me.y + dy
+                if in_bounds(nx, ny, wrld) and wrld.monsters_at(nx, ny):
+                    enemy_close = True
+                    break
+            if enemy_close:
+                break
+        feats["near_enemy"] = 1.0 if enemy_close else 0.0
+
+        # Distance to nearest enemy (inverse)
+        min_enemy_dist = INF
+        for ex in range(wrld.width()):
+            for ey in range(wrld.height()):
+                if wrld.monsters_at(ex, ey):
+                    dist = max(abs(me.x - ex), abs(me.y - ey))
+                    if dist < min_enemy_dist:
+                        min_enemy_dist = dist
+        feats["dist_to_enemy"] = 1.0 / (1.0 + min_enemy_dist) if min_enemy_dist < INF else 0.0
+
+        # Distance to nearest bomb (inverse)
+        min_bomb_dist = INF
+        for bx in range(wrld.width()):
+            for by in range(wrld.height()):
+                if wrld.bomb_at(bx, by):
+                    dist = max(abs(me.x - bx), abs(me.y - by))
+                    if dist < min_bomb_dist:
+                        min_bomb_dist = dist
+        feats["dist_to_bomb"] = 1.0 / (1.0 + min_bomb_dist) if min_bomb_dist < INF else 0.0
+
         return feats
+
 
     def _compute_reward(self, prev_wrld, curr_wrld, prev_action):
         me_prev = prev_wrld.me(self)
@@ -211,6 +257,19 @@ class ApproxQLearningCharacter(CharacterEntity):
         reward = R_STEP
         atype, _, _ = prev_action
 
+        
+        if me_prev and me_curr:
+            # Euclidean distance ignoring walls
+            exits = [(x, y) for x in range(curr_wrld.width())
+                            for y in range(curr_wrld.height())
+                            if curr_wrld.exit_at(x, y)]
+            if exits:
+                ex, ey = min(exits, key=lambda e: ((me_curr.x - e[0])**2 + (me_curr.y - e[1])**2)**0.5)
+                d_before = ((me_prev.x - ex)**2 + (me_prev.y - ey)**2)**0.5
+                d_after  = ((me_curr.x - ex)**2 + (me_curr.y - ey)**2)**0.5
+                delta_d = d_before - d_after
+                if delta_d > 0:
+                    reward += R_MOVE_TOWARDS_EXIT * delta_d
 
         # --- Reachability improvement reward ---
         if me_prev and me_curr:
@@ -218,7 +277,7 @@ class ApproxQLearningCharacter(CharacterEntity):
             after  = reachable_cells(me_curr.x, me_curr.y, curr_wrld)
             delta  = after - before
             if delta > 0:
-                reward += R_BOMB_CLEAR_PATH * delta  # scaled by gain in mobility
+                reward += R_BOMB_CLEAR_PATH * delta
 
         if atype == "bomb":
             # Reward wall destruction

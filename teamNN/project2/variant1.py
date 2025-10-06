@@ -2,6 +2,7 @@
 import sys
 sys.path.insert(0, '../../Bomberman')
 sys.path.insert(1, '..')
+sys.path.insert(1, '../teamNN')
 
 # Import necessary stuff
 from game import Game
@@ -12,10 +13,10 @@ sys.path.insert(1, '../teamNN')
 from testcharacter import TestCharacter
 from qlearn_character import ApproxQLearningCharacter, TRAINING
 
-for i in range(100):  # number of training games
+for i in range(200):  # number of training games
     random.seed() # TODO Change this if you want different random choices
     print(f"\n[Training Run {i+1}/50]")
-    g = Game.fromfile('map.txt')
+    g = Game.fromfile('/Users/dhruvmadan/RBE4701/RBE470x-projects/teamNN/TrainMap2.txt')
     agent = ApproxQLearningCharacter("me", "Q", 0, 0)
     g.add_character(agent)
     g.go(1)  # Run full game
