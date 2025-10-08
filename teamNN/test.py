@@ -6,7 +6,7 @@ sys.path.insert(1, '..')
 # Test runner for all variants
 # run specified variant a specified number of times and log the results
 
-VARIANT = 3  # Change this to 1, 2, 3, 4, or 5 to select the variant to run
+VARIANT = 2  # Change this to 1, 2, 3, 4, or 5 to select the variant to run
 NUM_RUNS = 20  # Number of times to run the selected variant
 
 CHARACTER_NAME = "me"  # Name of the character to track in the logs

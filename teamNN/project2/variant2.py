@@ -7,13 +7,13 @@ sys.path.insert(1, '..')
 import random
 from game import Game
 from monsters.stupid_monster import StupidMonster
+from MDPwBomb import TestCharacter
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
-from testcharacter import TestCharacter
 
 # Create the game
-random.seed(123) # TODO Change this if you want different random choices
+random.seed() # TODO Change this if you want different random choices
 g = Game.fromfile('map.txt')
 g.add_monster(StupidMonster("stupid", # name
                             "S",      # avatar
@@ -27,4 +27,4 @@ g.add_character(TestCharacter("me", # name
 ))
 
 # Run!
-g.go()
+g.go(1)

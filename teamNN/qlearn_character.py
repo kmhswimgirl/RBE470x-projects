@@ -22,9 +22,9 @@ R_DEATH = -3000.0 # Penalty for dying
 R_STEP = -1.0 # Small penalty for each step taken
 R_BOMB_WALL = +50.0 # Reward for bombing a wall
 R_CLEAR_PATH = +300.0 # Reward for clearing a path
-R_MONSTER_KILL = +300.0 # Reward for killing a monster
+R_MONSTER_KILL = +400.0 # Reward for killing a monster
 R_BOMB_CLEAR_PATH = +150.0 # Reward for increasing reachable cells
-R_MOVE_TOWARDS_EXIT = +100.00 # Reward for moving closer to exit
+R_MOVE_TOWARDS_EXIT = +10.00 # Reward for moving closer to exit
 
 DIRS8 = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if not (dx == 0 and dy == 0)]
 DIRS9 = [(0, 0)] + DIRS8
