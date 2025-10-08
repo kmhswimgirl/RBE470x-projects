@@ -12,11 +12,11 @@ import random
 sys.path.insert(1, '../teamNN')
 from qlearn_character import ApproxQLearningCharacter, TRAINING
 from monsters.stupid_monster import StupidMonster
-from MDPwBomb import TestCharacter
+from qlearn_character import ApproxQLearningCharacter
 
 random.seed() # TODO Change this if you want different random choices
-g = Game.fromfile('/Users/dhruvmadan/RBE4701/RBE470x-projects/teamNN/map.txt')
-agent = TestCharacter("me", "Q", 0, 0)
+g = Game.fromfile('/Users/dhruvmadan/RBE4701/RBE470x-projects/teamNN/TrainMap1.txt')
+agent = ApproxQLearningCharacter("me", "Q", 0, 0)
 g.add_character(agent)
 g.go(1)  # Run full game
 
