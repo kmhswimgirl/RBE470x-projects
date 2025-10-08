@@ -10,7 +10,6 @@ import random
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
-from testcharacter import TestCharacter
 from qlearn_character import ApproxQLearningCharacter, TRAINING
 from monsters.stupid_monster import StupidMonster
 from MDPwBomb import TestCharacter
