@@ -10,7 +10,7 @@ from monsters.selfpreserving_monster import SelfPreservingMonster
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
-from FakeCharacter import TestCharacter
+from agent import TestCharacter
 
 # Create the game
 random.seed(123) # TODO Change this if you want different random choices
@@ -24,8 +24,8 @@ g.add_monster(SelfPreservingMonster("selfpreserving", # name
 # TODO Add your character
 g.add_character(TestCharacter("me", # name
                               "C",  # avatar
-                              0, 0  # position
+                              0, 0, 3  # position
 ))
 
-g.world.characters[g.world.index(0, 0)][0].pick_file("V3.json")
+
 g.go(1)

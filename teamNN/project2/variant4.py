@@ -10,7 +10,7 @@ from monsters.selfpreserving_monster import SelfPreservingMonster
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
-from FakeCharacter import TestCharacter
+from agent import TestCharacter
 
 # Create the game
 random.seed() # TODO Change this if you want different random choices
@@ -24,7 +24,7 @@ g.add_monster(SelfPreservingMonster("aggressive", # name
 # TODO Add your character
 g.add_character(TestCharacter("me", # name
                               "C",  # avatar
-                              0, 0  # position
+                              0, 0, 4  # position
 ))
 
 # Run!

@@ -11,13 +11,17 @@ import numpy as np
 import random
 import os
 
+# Set to True to enable training (weights are updated and saved).
+# Set to False to run in inference mode (weights are loaded but not changed).
+TRAINING = True
+
 class World_State(Enum):
     WORLD_SAFE = 0      # not used
     WORLD_HAS_BOMB = 1
 
 
 class TestCharacter(CharacterEntity):
-    weights_file = 'default_weights'
+    weights_file = 'weights'
 
     def __init__(self, name, avatar, x, y, variant_num):
         CharacterEntity.__init__(self, name, avatar, x, y)
@@ -67,7 +71,6 @@ class TestCharacter(CharacterEntity):
         # print(f"Pos {(self.x, self.y)}\tExit {wrld.exitcell}\t{near_exit}\t {abs(wrld.exitcell[0] - self.x), abs(wrld.exitcell[1] - self.y)}")
         if near_exit:
             self.move(wrld.exitcell[0] - self.x, wrld.exitcell[1] - self.y)
-            self.delete_w()
             return
 
         # while the character is not at exit yet
@@ -96,8 +99,11 @@ class TestCharacter(CharacterEntity):
             # Q learning if world is not safe
             case World_State.WORLD_HAS_BOMB:
                 weight = self.read_weights()
-                new_weight = self.approximate_Q(weight, wrld)
-                self.write_weights(new_weight)
+                # approximate_Q will perform action selection; pass TRAINING
+                new_weight = self.approximate_Q(weight, wrld, train=TRAINING)
+                # only save updated weights when training is enabled
+                if TRAINING:
+                    self.write_weights(new_weight)
 
 
     def read_weights(self):
@@ -106,7 +112,7 @@ class TestCharacter(CharacterEntity):
         Behavior:
         - Attempts to read weights from a file named `weights<variant_num>`.
         - If that file does not exist, falls back to
-          `default_weights_<variant_num>`.
+          `weights<variant_num>.txt`.
 
         Returns
         - list[float]: list of weights read from the file.
@@ -115,14 +121,15 @@ class TestCharacter(CharacterEntity):
         - If the file contains non-numeric lines a ValueError will be caught
           and an error message will be printed (the exception is not re-raised).
         """
-        self.weights_file = 'weights' + str(self.variant_num)
+        # Use explicit .txt suffix for weight files: weights<variant>.txt
+        self.weights_file = 'weights' + str(self.variant_num) + '.txt'
         if os.path.exists(self.weights_file):
             try:
                 weights = [float(line.rstrip('\n')) for line in open(self.weights_file, 'r')]
             except ValueError:
                 print('ERROR (ValueError): unexpected newline character encountered')
         else:
-                weights = [float(line.rstrip('\n')) for line in open('default_weights_' + str(self.variant_num), 'r')]
+            weights = [float(line.rstrip('\n')) for line in open('weights' + str(self.variant_num) + '.txt', 'r')]
         return weights
 
     def write_weights(self, weight):
@@ -139,24 +146,15 @@ class TestCharacter(CharacterEntity):
         - If `weight` is None or not iterable, a TypeError is caught and an
           error message is printed.
         """
+        # Ensure the weights file name follows the pattern weights<variant>.txt
         with open(self.weights_file, 'w') as f:
             try:
                 f.writelines(['%s\n' % w for w in weight])
             except TypeError:
                 print('ERROR (TypeError): weights is empty (is None)')
-            f.close()
-
-    def delete_w(self):
-                """Delete this character's weight file.
-
-                Side effects
-                - Removes the file named `weights<variant_num>` from disk. If the file
-                    does not exist, this will raise an OSError from `os.remove`.
-                """
-                os.remove('weights' + str(self.variant_num))
 
     # perform approximate q algorithm
-    def approximate_Q(self, weight, wrld):
+    def approximate_Q(self, weight, wrld, train: bool = True):
         """Perform one approximate Q-learning update and choose an action.
 
         This routine evaluates all immediate successor states (including a
@@ -185,7 +183,7 @@ class TestCharacter(CharacterEntity):
         - The method uses small learning rate `alpha=0.01` and discount
           factor `gamma=0.9`. These are hard-coded hyperparameters.
         """
-        # hyperparams
+    # hyperparams
         gamma = 0.9  # Discount factor
         alpha = 0.01  # Learning rate
         # alpha = 0.000001  # Learning rate
@@ -273,10 +271,11 @@ class TestCharacter(CharacterEntity):
         # calculate delta
         delta = (current_reward + gamma * next_q) - current_q
 
-        # recalculate weight
-        for i in range(len(weight)):
-            f = current_feature_vector[i]
-            weight[i] = weight[i] + alpha*delta*f
+        # recalculate weight only if in training mode
+        if train:
+            for i in range(len(weight)):
+                f = current_feature_vector[i]
+                weight[i] = weight[i] + alpha*delta*f
 
         return weight
 

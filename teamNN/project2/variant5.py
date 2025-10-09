@@ -12,7 +12,7 @@ from monsters.selfpreserving_monster import SelfPreservingMonster
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
 # from OptimizeB5 import TestCharacter
-from FakeCharacter2 import TestCharacter
+from agent import TestCharacter
 
 # Create the game
 random.seed() # TODO Change this if you want different random choices
