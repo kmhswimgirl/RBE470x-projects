@@ -29,7 +29,7 @@ class TestCharacter(CharacterEntity):
         # keep track of bomb explosion time
         self.my_bomb_timer = math.inf
 
-    def do(self, wrld):
+    def do(self, world):
         """Decide and perform the next action for this character.
 
         This is the main per-timestep method called by the game engine. It
@@ -50,14 +50,10 @@ class TestCharacter(CharacterEntity):
         - Updates `self.my_bomb_timer` when a bomb is placed.
         """
         # always WORLD_HAS_BOMB
-        if len(self.get_bomb_location(wrld)) == 0 \
-                and len(self.get_monster_location(wrld)) == 0 \
-                and len(self.get_explosion_location(wrld)) == 0:
-
+        if len(self.get_bomb_location(world)) == 0 and len(self.get_monster_location(world)) == 0 and len(self.get_explosion_location(world)) == 0:
             world_state = World_State.WORLD_SAFE
         else:
             world_state = World_State.WORLD_HAS_BOMB
-        # print(world_state)
 
         # reduce timer
         if self.my_bomb_timer == 0:
@@ -67,10 +63,9 @@ class TestCharacter(CharacterEntity):
         self.my_bomb_timer -= 1
 
         # check if close to exit
-        near_exit = max(abs(wrld.exitcell[0] - self.x), abs(wrld.exitcell[1] - self.y)) <= 1
-        # print(f"Pos {(self.x, self.y)}\tExit {wrld.exitcell}\t{near_exit}\t {abs(wrld.exitcell[0] - self.x), abs(wrld.exitcell[1] - self.y)}")
+        near_exit = max(abs(world.exitcell[0] - self.x), abs(world.exitcell[1] - self.y)) <= 1
         if near_exit:
-            self.move(wrld.exitcell[0] - self.x, wrld.exitcell[1] - self.y)
+            self.move(world.exitcell[0] - self.x, world.exitcell[1] - self.y)
             return
 
         # while the character is not at exit yet
@@ -78,28 +73,26 @@ class TestCharacter(CharacterEntity):
             # perform A* if world is safe
             case World_State.WORLD_SAFE:
                 # get path to exit
-                path = self.astar(self, wrld)
-                # for i in range(0, len(path)):
-                move = path[0]
+                path = self.astar(self, world)
+                if not path:
+                    return
+                next_cell = path[0]
                 # find the interaction point between the path and wall
-                if not wrld.wall_at(move[0], move[1]):
-                    self.move(move[0] - self.x, move[1] - self.y)
-                    path = path[1:]
-                elif wrld.explosion_at(move[0], move[1]):
+                if not world.wall_at(next_cell[0], next_cell[1]):
+                    self.move(next_cell[0] - self.x, next_cell[1] - self.y)
+                elif world.explosion_at(next_cell[0], next_cell[1]):
                     self.move(0, 0)
-                    # print(move)
-                # place a bomb if the next move is a wall
                 else:
+                    # place a bomb if the next move is a wall
                     self.place_bomb()
-                    self.my_bomb_timer = wrld.bomb_time +1
+                    self.my_bomb_timer = world.bomb_time + 1
                     world_state = World_State.WORLD_HAS_BOMB
-                    # break
 
             # Q learning if world is not safe
             case World_State.WORLD_HAS_BOMB:
                 weight = self.read_weights()
                 # approximate_Q will perform action selection; pass TRAINING
-                new_weight = self.approximate_Q(weight, wrld, train=TRAINING)
+                new_weight = self.approximate_Q(weight, world, train=TRAINING)
                 # only save updated weights when training is enabled
                 if TRAINING:
                     self.write_weights(new_weight)
@@ -153,7 +146,7 @@ class TestCharacter(CharacterEntity):
                 print('ERROR (TypeError): weights is empty (is None)')
 
     # perform approximate q algorithm
-    def approximate_Q(self, weight, wrld, train: bool = True):
+    def approximate_Q(self, weight, world, train: bool = True):
         """Perform one approximate Q-learning update and choose an action.
 
         This routine evaluates all immediate successor states (including a
@@ -182,7 +175,7 @@ class TestCharacter(CharacterEntity):
         - The method uses small learning rate `alpha=0.01` and discount
           factor `gamma=0.9`. These are hard-coded hyperparameters.
         """
-    # hyperparams
+        # hyperparams
         gamma = 0.9  # Discount factor
         alpha = 0.01  # Learning rate
         # alpha = 0.000001  # Learning rate
@@ -190,90 +183,87 @@ class TestCharacter(CharacterEntity):
         #   distance to bomb, time left for explosion, in corner, distance to exit, distance to closest wall, dist to monst, in explosion range
         # possible actions:
         #   move up, move down, move left, move right, place bomb
-        possible_action_list = [(i,j) for i in range(-1, 2) for j in range(-1, 2) ]
-        # dictionary of rewards for the next possible actions
-        cur_reward_dict = {}
-        cur_q_dict = {}
-        bomb_info_dict = {} # location: bomb remaining time
-        # # initialize weight
-        # weight = [random.randint(1, 100) for _ in range(7)]
-        # pick action
-        for action in possible_action_list:
+        possible_actions = [(i, j) for i in range(-1, 2) for j in range(-1, 2)]
+        # dictionaries for rewards and Q-values for next possible actions
+        rewards = {}
+        q_values = {}
+        bomb_timers = {}  # location: bomb remaining time
+
+        # evaluate each possible immediate action by simulating it
+        for action in possible_actions:
             next_location = (self.x + action[0], self.y + action[1])
             next_x, next_y = next_location
-            # create new world based on character movement
-            new_wrld = wrld.from_world(wrld)
-            bomb_info_dict[next_location] = math.inf
-            # if self.check_inbound(next_x, next_y, new_wrld) and new_wrld.empty_at(next_x, next_y) and not self.in_explosion_range(next_x, next_y, new_wrld):
-            if self.check_inbound(next_x, next_y, new_wrld) and not self.in_explosion_range(next_x, next_y, wrld):
+            # create a simulated copy of the world and character to evaluate the action
+            sim_world = world.from_world(world)
+            bomb_timers[next_location] = math.inf
 
-                char = list(new_wrld.characters.values())[0][0]
+            if self.check_inbound(next_x, next_y, sim_world) and not self.in_explosion_range(next_x, next_y, world):
+                sim_char = list(sim_world.characters.values())[0][0]
 
-                if new_wrld.empty_at(next_x, next_y):
-                    char.move(action[0], action[1])
+                if sim_world.empty_at(next_x, next_y):
+                    sim_char.move(action[0], action[1])
                 else:
-                    # not valid way, try to place bomb
-                    # only place bomb if no bomb, else will replace real bomb
-                    if len(self.get_bomb_location(wrld)) == 0 \
-                            and new_wrld.wall_at(next_x, next_y) \
-                            and len(self.get_explosion_location(wrld)) == 0:
-                        char.place_bomb()
-                        bomb_info_dict[next_location] = new_wrld.bomb_time +1
+                    # not valid move, try placing a bomb instead (only if none exist)
+                    if len(self.get_bomb_location(world)) == 0 and sim_world.wall_at(next_x, next_y) and len(self.get_explosion_location(world)) == 0:
+                        sim_char.place_bomb()
+                        bomb_timers[next_location] = sim_world.bomb_time + 1
                     else:
                         continue
 
+                # reward for this simulated step (offset to keep positive)
+                reward = sim_world.scores[sim_char.name] + 5000
 
-                # the reward for this step
-                # make reward always positive to update weight correctly
-                reward = new_wrld.scores[char.name] + 5000
-
-                cur_reward_dict[next_location] = reward
-                next_feature_vector = self.get_feature_vector(next_x, next_y, new_wrld)
-                q_val = np.dot(weight, next_feature_vector)
-                cur_q_dict[next_location] = q_val
+                rewards[next_location] = reward
+                next_features = self.get_feature_vector(next_x, next_y, sim_world)
+                q_value = np.dot(weight, next_features)
+                q_values[next_location] = q_value
 
         # collect s' and reward
-        # print(cur_q_dict)
-        # select the key with the maximum Q-value in a type-safe way
-        current_move = max(cur_q_dict.items(), key=lambda kv: kv[1])[0]
-        current_reward = cur_reward_dict[current_move]
-        current_q = cur_q_dict[current_move]
-        # print(f"Current Pos: {(self.x, self.y)}\tDecided Move: {current_move}")
-        # copy bomb
-        if bomb_info_dict[current_move] != math.inf:
+        # select the key with the maximum Q-value
+        # (if q_values is empty this will raise; that matches previous behavior)
+        chosen_move = max(q_values.items(), key=lambda kv: kv[1])[0]
+        chosen_reward = rewards[chosen_move]
+        chosen_q = q_values[chosen_move]
+        # copy bomb state if the simulated best action placed a bomb
+        if bomb_timers[chosen_move] != math.inf:
             self.place_bomb()
-            self.my_bomb_timer = bomb_info_dict[current_move]
+            self.my_bomb_timer = bomb_timers[chosen_move]
         else:
-            # make the move
-            self.move(current_move[0]-self.x, current_move[1]-self.y)
+            # execute the chosen movement
+            self.move(chosen_move[0] - self.x, chosen_move[1] - self.y)
 
-        current_feature_vector = self.get_feature_vector(self.x, self.y, wrld)
+        current_features = self.get_feature_vector(self.x, self.y, world)
 
-        next_q_dict = {}
-        # find maxQ(s', a')
-        for action in possible_action_list:
-            next_location = (current_move[0] + action[0], current_move[1] + action[1])
-            # create new world based on character movement
-            new_wrld = wrld.from_world(wrld)
-            char = next(iter(new_wrld.characters.values()))[0]
-            char.move(action[0], action[1])
+        next_q_values = {}
+        # find max Q(s', a') over possible next actions from the chosen state
+        for action in possible_actions:
+            next_location = (chosen_move[0] + action[0], chosen_move[1] + action[1])
+            sim_world = world.from_world(world)
+            sim_char = next(iter(sim_world.characters.values()))[0]
+            sim_char.move(action[0], action[1])
             next_x = next_location[0]
             next_y = next_location[1]
-            if self.check_inbound(next_x, next_y, new_wrld) and new_wrld.empty_at(next_x, next_y)  and not self.in_explosion_range(next_x, next_y, new_wrld): 
-                
-                next_feature_vector = self.get_feature_vector(next_x, next_y, new_wrld)
-                q_val = np.dot(weight, next_feature_vector)
-                next_q_dict[next_location] = q_val
-        next_q = max(next_q_dict.values())
+            if self.check_inbound(next_x, next_y, sim_world) and sim_world.empty_at(next_x, next_y) and not self.in_explosion_range(next_x, next_y, sim_world):
+                next_features = self.get_feature_vector(next_x, next_y, sim_world)
+                q_val = np.dot(weight, next_features)
+                next_q_values[next_location] = q_val
+        if next_q_values:
+            next_q = max(next_q_values.values())
+        else:
+            next_q = 0
 
-        # calculate delta
+        # set current reward and Q (estimates computed earlier)
+        current_reward = chosen_reward
+        current_q = chosen_q
+
+        # calculate delta (TD error)
         delta = (current_reward + gamma * next_q) - current_q
 
         # recalculate weight only if in training mode
         if train:
             for i in range(len(weight)):
-                f = current_feature_vector[i]
-                weight[i] = weight[i] + alpha*delta*f
+                f = current_features[i]
+                weight[i] = weight[i] + alpha * delta * f
 
         return weight
 
