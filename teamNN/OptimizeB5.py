@@ -30,7 +30,7 @@ RISK_SCALE = 400.0
 RISK_RADIUS_EXP = 0.6
 
 # Distance-to-exit shaping
-EXIT_SHAPING = 35.0
+EXIT_SHAPING = 15.0
 
 
 # --- Helper Functions ---
@@ -106,30 +106,48 @@ def immediate_hazard(x, y, wrld):
 
 
 def build_risk_map(wrld):
-    """NumPy-accelerated diffusion of monster danger probability."""
+    """NumPy-accelerated danger map considering 4-directional bomb blasts only."""
     W, H = wrld.width(), wrld.height()
     risk = np.zeros((W, H), dtype=float)
     seed = np.zeros((W, H), dtype=float)
 
+    # --- Mark monsters as probabilistic seeds ---
     for y in range(H):
         for x in range(W):
             if wrld.monsters_at(x, y):
                 seed[x, y] = 1.0
-            elif wrld.bomb_at(x, y) is not None:
-                risk[x, y] += 0.5
 
+    # --- Mark bombs only in blast paths (cardinal directions only) ---
+    for y in range(H):
+        for x in range(W):
+            bomb = wrld.bomb_at(x, y)
+            if bomb is not None:
+                blast_range = bomb.timer + 1 if hasattr(bomb, "timer") else 3
+                risk[x, y] = 1.0  # center of explosion
+
+                # Check 4 directions
+                for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                    for step in range(1, blast_range + 1):
+                        nx, ny = x + dx * step, y + dy * step
+                        if not in_bounds(nx, ny, wrld):
+                            break
+                        if wrld.wall_at(nx, ny):
+                            break  # stop at walls
+                        risk[nx, ny] = 1.0
+
+    # --- Normalize monster seeds for diffusion ---
     total = seed.sum()
     if total > 0:
         seed /= total
 
     current = seed.copy()
     decay = 1.0
-    kernel = np.ones((3, 3)) / 9.0  # uniform diffusion
 
+    # 3×3 average diffusion kernel
     for _ in range(RISK_HORIZON):
         decay *= RISK_DECAY
         risk += decay * np.power(current, RISK_RADIUS_EXP)
-        # 2D convolution using NumPy padding (manual)
+
         padded = np.pad(current, ((1, 1), (1, 1)), mode='constant', constant_values=0)
         nxt = np.zeros_like(current)
         for dx in (-1, 0, 1):
@@ -269,6 +287,7 @@ class TestCharacter(CharacterEntity):
             prox_pen = 0.0 if near == INF else (25.0 / (1.0 + near))
             return closeness - (RISK_SCALE * risk[x, y]) - prox_pen
 
+        # --- Behavior when exit unreachable ---
         unreachable = dist_exit[me.x, me.y] == INF
         if unreachable and not self._bomb_active:
             if self._exit_goal is not None:
@@ -295,6 +314,34 @@ class TestCharacter(CharacterEntity):
                             best = (sx, sy)
                 self.move(*best)
                 return
+
+        # --- If reachable path is blocked by monsters or hazards, try bombing walls to open new routes ---
+        if not unreachable and not self._bomb_active:
+            # Look around: if all neighbor cells toward the exit are risky or blocked, consider bombing
+            gx, gy = self._exit_goal if self._exit_goal else (me.x, me.y)
+            dx = np.sign(gx - me.x)
+            dy = np.sign(gy - me.y)
+            blocked_dirs = 0
+            safe_dirs = 0
+
+            for sx, sy in DIRS8:
+                nx, ny = me.x + sx, me.y + sy
+                if not in_bounds(nx, ny, wrld):
+                    continue
+                if wrld.wall_at(nx, ny):
+                    blocked_dirs += 1
+                elif not immediate_hazard(nx, ny, wrld):
+                    safe_dirs += 1
+
+            # If nearly surrounded or goal path is unsafe
+            goal_blocked = wrld.wall_at(me.x + dx, me.y + dy) or immediate_hazard(me.x + dx, me.y + dy, wrld)
+
+            if (goal_blocked and safe_dirs <= 2 and self._bomb_cooldown <= 0):
+                self.place_bomb()
+                self._bomb_cooldown = self._BOMB_COOLDOWN_TICKS
+                self._bomb_active = True
+                return
+
 
         ax, ay = Pi.get((me.x, me.y), (0, 0))
         tx, ty = me.x + ax, me.y + ay

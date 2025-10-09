@@ -45,7 +45,7 @@ for i in range(NUM_RUNS):
     for line in output_lines:
         if f"{CHARACTER_NAME} found the exit" in line:
             wins += 1
-        elif f"{CHARACTER_NAME} was killed" in line:
+        elif f"killed" in line:
             losses += 1
     
     # clear output lines for next run

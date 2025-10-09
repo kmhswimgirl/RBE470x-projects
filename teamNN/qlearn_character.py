@@ -1,313 +1,221 @@
-# Approximate Q-Learning Bomberman Character
-# ------------------------------------------
-# Works seamlessly in variants:
-#   - TRAINING = True  → updates weights after each Game.go()
-#   - TRAINING = False → runs using saved weights only
-# Character automatically saves/loads "weights.json" between games.
-
-import os, json, random
-from collections import defaultdict, deque
-from entity import CharacterEntity  # from Bomberman engine
+# qlearn_character.py
+import sys
+import os
 import math
+import random
+import json
+import numpy as np
+from colorama import Fore, Back
 
-# ---------------- Configuration ---------------- #
-TRAINING = True          # <-- Flip this to False when fully trained
-ALPHA = 0.1              # learning rate
-GAMMA = 0.95              # discount factor
-EPSILON = 0.15           # exploration probability during training
-WEIGHT_FILE = "weights.json"
+sys.path.insert(0, '../Bomberman')
+from entity import CharacterEntity  # type: ignore
+from collections import deque
 
-R_EXIT = +500.0 # Reward for reaching exit
-R_DEATH = -3000.0 # Penalty for dying
-R_STEP = -1.0 # Small penalty for each step taken
-R_BOMB_WALL = +50.0 # Reward for bombing a wall
-R_CLEAR_PATH = +300.0 # Reward for clearing a path
-R_MONSTER_KILL = +400.0 # Reward for killing a monster
-R_BOMB_CLEAR_PATH = +150.0 # Reward for increasing reachable cells
-R_MOVE_TOWARDS_EXIT = +10.00 # Reward for moving closer to exit
+# ===============================================================
+# Configuration
+# ===============================================================
+TRAINING = True  # <-- set to False when running final evaluations
+WEIGHT_FILE = "bomb_q_weights.json"
 
+INF = 1e9
 DIRS8 = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if not (dx == 0 and dy == 0)]
 DIRS9 = [(0, 0)] + DIRS8
-INF = 10 ** 9
 
-# ---------------- Helper functions ---------------- #
+# ===============================================================
+# Q-Learner
+# ===============================================================
+class ApproxQLearner:
+    def __init__(self, alpha=0.1, gamma=0.9, epsilon=0.2):
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.weights = {
+            "bias": 0.0,
+            "dist_to_exit": 0.0,
+            "near_wall": 0.0,
+            "monster_nearby": 0.0,
+            "bomb_nearby": 0.0
+        }
+        self.load_weights()
 
+    # ----------------------------
+    # Feature extraction
+    # ----------------------------
+    def features(self, wrld, me):
+        f = {}
+        f["bias"] = 1.0
+
+        # distance to exit (Manhattan normalized)
+        dist = 9999
+        for y in range(wrld.height()):
+            for x in range(wrld.width()):
+                if wrld.exit_at(x, y):
+                    d = abs(me.x - x) + abs(me.y - y)
+                    dist = min(dist, d)
+        f["dist_to_exit"] = 1.0 / (1.0 + dist)
+
+        # near wall
+        f["near_wall"] = 1.0 if any(
+            wrld.wall_at(nx, ny)
+            for nx in range(me.x - 1, me.x + 2)
+            for ny in range(me.y - 1, me.y + 2)
+            if (nx, ny) != (me.x, me.y)
+            and 0 <= nx < wrld.width()
+            and 0 <= ny < wrld.height()
+        ) else 0.0
+
+        # nearby monster
+        f["monster_nearby"] = 1.0 if any(
+            wrld.monsters_at(nx, ny)
+            for nx in range(me.x - 2, me.x + 3)
+            for ny in range(me.y - 2, me.y + 3)
+            if 0 <= nx < wrld.width() and 0 <= ny < wrld.height()
+        ) else 0.0
+
+        # nearby bomb
+        f["bomb_nearby"] = 1.0 if any(
+            wrld.bomb_at(nx, ny)
+            for nx in range(me.x - 2, me.x + 3)
+            for ny in range(me.y - 2, me.y + 3)
+            if 0 <= nx < wrld.width() and 0 <= ny < wrld.height()
+        ) else 0.0
+
+        return f
+
+    # ----------------------------
+    # Q-function
+    # ----------------------------
+    def q_value(self, f):
+        return sum(self.weights[k] * f[k] for k in self.weights)
+
+    def choose_action(self, wrld, me):
+        """Epsilon-greedy bomb choice (1=bomb, 0=wait)."""
+        f = self.features(wrld, me)
+        if TRAINING and random.random() < self.epsilon:
+            return random.choice([0, 1]), f
+        q_drop = self.q_value(f)
+        q_no = 0
+        return (1, f) if q_drop > q_no else (0, f)
+
+    def update(self, reward, f_prev, f_next, done=False):
+        q_prev = self.q_value(f_prev)
+        q_next = 0 if done else self.q_value(f_next)
+        td_target = reward + self.gamma * q_next
+        td_error = td_target - q_prev
+        for k in self.weights:
+            self.weights[k] += self.alpha * td_error * f_prev[k]
+
+    # ----------------------------
+    # Save/Load weights
+    # ----------------------------
+    def save_weights(self):
+        with open(WEIGHT_FILE, "w") as f:
+            json.dump(self.weights, f, indent=2)
+
+    def load_weights(self):
+        if os.path.exists(WEIGHT_FILE):
+            with open(WEIGHT_FILE, "r") as f:
+                self.weights = json.load(f)
+                print(f"[Q-Learner] Loaded weights from {WEIGHT_FILE}")
+
+
+# ===============================================================
+# Utility functions
+# ===============================================================
 def in_bounds(x, y, wrld):
     return 0 <= x < wrld.width() and 0 <= y < wrld.height()
 
-def neighbors8(x, y, wrld):
-    for dx, dy in DIRS8:
-        nx, ny = x + dx, y + dy
-        if in_bounds(nx, ny, wrld) and not wrld.wall_at(nx, ny):
-            yield nx, ny
 
-def flood_to_exit(wrld):
-    """
-    Compute the distance from each cell to the nearest exit using multi-source BFS.
-    Parameters:
-    - wrld: The game world object.
-    Returns:
-    - A 2D list of distances where dist[x][y] is the distance from (x, y) to the nearest exit.
-      If a cell is unreachable, its distance is INF.
-
-    """
-
-    W, H = wrld.width(), wrld.height()
-    dist = [[INF]*H for _ in range(W)]
-    q = deque()
-    for y in range(H):
-        for x in range(W):
-            if wrld.exit_at(x, y):
-                dist[x][y] = 0
-                q.append((x, y))
-    while q:
-        cx, cy = q.popleft()
-        for nx, ny in neighbors8(cx, cy, wrld):
-            if dist[nx][ny] > dist[cx][cy] + 1:
-                dist[nx][ny] = dist[cx][cy] + 1
-                q.append((nx, ny))
-    return dist
-
-def path_exists_to_exit(wrld, sx, sy):
-    """
-    Check if there is a path from (sx, sy) to any exit in the world.
-
-    Parameters:
-    - wrld: The game world object.
-    - sx, sy: Starting coordinates.
-
-    Returns:
-    - True if a path exists to an exit, False otherwise.
-    """
-    seen, q = set(), deque([(sx, sy)])
-    while q:
-        x, y = q.popleft()
-        if wrld.exit_at(x, y): return True
-        for nx, ny in neighbors8(x, y, wrld):
-            if (nx, ny) not in seen:
-                seen.add((nx, ny))
-                q.append((nx, ny))
-    return False
-
-def reachable_cells(sx, sy, wrld):
-    """
-    Find the number of cells reachable from (sx, sy) without crossing walls.
-    Parameters:
-    - sx, sy: Starting coordinates.
-    - wrld: The game world object.
-
-    Returns:
-    - number of total reachable cells
-    """
-    seen, q = set(), deque([(sx, sy)])
-    seen.add((sx, sy))
-    while q:
-        x, y = q.popleft()
-        for nx, ny in neighbors8(x, y, wrld):
-            if (nx, ny) not in seen:
-                seen.add((nx, ny))
-                q.append((nx, ny))
-    return len(seen)
-
-def immediate_hazard(x, y, wrld):
-    if wrld.explosion_at(x, y): return True
-    if wrld.bomb_at(x, y): return True
-    if wrld.monsters_at(x, y): return True
-    return False
-
-# ---------------- Q-Learning Character ---------------- #
-
+# ===============================================================
+# Q-Learning Bomberman Character
+# ===============================================================
 class ApproxQLearningCharacter(CharacterEntity):
-    def __init__(self, name="qhero", avatar="Q", x=0, y=0):
+    def __init__(self, name="hero", avatar="Q", x=0, y=0):
         super().__init__(name, avatar, x, y)
-        self.alpha, self.gamma, self.epsilon = ALPHA, GAMMA, EPSILON
-        self.weights = defaultdict(float)
-        if os.path.exists(WEIGHT_FILE):
-            self.load_weights()
-            print(f"[QL] Loaded existing weights from {WEIGHT_FILE}")
-        self.prev_features = None
-        self.prev_action = None
-        self.prev_wrld = None
-        self._dist_exit = None
+        self.q_bomb = ApproxQLearner(alpha=0.1, gamma=0.9, epsilon=0.2)
+        self._bomb_active = False
+        self._bomb_cooldown = 0
+        self._BOMB_COOLDOWN_TICKS = 10
+        self._last_feats = None
+        self._last_action = None
 
+    # ----------------------------------------------------------
     def do(self, wrld):
-        """Main loop called every tick by Game.go()."""
         me = wrld.me(self)
         if me is None:
             return
 
-        # Compute distances, features
-        self._dist_exit = flood_to_exit(wrld)
+        # Decide whether to bomb using Q-learning
+        action, feats = self.q_bomb.choose_action(wrld, me)
+        self._last_feats = feats
+        self._last_action = action
 
-        # Q-learning update (only during training)
-        if TRAINING and self.prev_features and self.prev_action and self.prev_wrld:
-            reward = self._compute_reward(self.prev_wrld, wrld, self.prev_action)
-            td_error = (reward + self.gamma * self._max_q(wrld)) - self._q_from_features(self.prev_features)
-            for f, v in self.prev_features.items():
-                self.weights[f] += self.alpha * td_error * v
+        if action == 1 and not self._bomb_active and self._bomb_cooldown <= 0:
+            self.place_bomb()
+            self._bomb_active = True
+            self._bomb_cooldown = self._BOMB_COOLDOWN_TICKS
 
-        # Choose next action
-        action = self._choose_action(wrld)
-        self.prev_wrld, self.prev_action = wrld, action
-        self.prev_features = self._extract_features(wrld, action)
-
-        # Execute action
-        atype, dx, dy = action
-        if atype == "bomb": self.place_bomb()
-        else: self.move(dx, dy)
-
-        # If training and the game ends (agent dies or reaches exit), save weights
-        if TRAINING:
-            me = wrld.me(self)
-            if me is None or wrld.exit_at(self.x, self.y):
-                self.save_weights()
-
-    # ---------------- Core Q-Learning ---------------- #
-    def _actions(self, wrld):
-        me = wrld.me(self)
-        acts = [("move", dx, dy) for dx, dy in DIRS9 if in_bounds(me.x + dx, me.y + dy, wrld)]
-        if self._should_offer_bomb(wrld):
-            acts.append(("bomb", 0, 0))
-        return acts
-
-    def _choose_action(self, wrld):
-        acts = self._actions(wrld)
-        if not acts: return ("move", 0, 0)
-        if TRAINING and random.random() < self.epsilon:
-            return random.choice(acts)
-        return max(acts, key=lambda a: self._q_value(wrld, a))
-
-    def _q_value(self, wrld, action):
-        return self._q_from_features(self._extract_features(wrld, action))
-
-    def _q_from_features(self, feats):
-        return sum(self.weights[f]*v for f,v in feats.items())
-
-    def _max_q(self, wrld):
-        acts = self._actions(wrld)
-        return max((self._q_value(wrld,a) for a in acts), default=0.0)
-
-    # ---------------- Features & Reward ---------------- #
-    def _extract_features(self, wrld, action):
-        atype, ax, ay = action
-        me = wrld.me(self)
-        feats = defaultdict(float)
-
-        # Target cell
-        tx, ty = me.x + ax, me.y + ay
-        feats["bias"] = 1.0
-
-        # Distance-based
-        d = self._dist_exit[tx][ty]
-        feats["inv_exit_dist"] = 1.0 / (1.0 + (d if d < INF else 9999))
-
-        # Contextual
-        feats["blocked"] = 1.0 if not path_exists_to_exit(wrld, me.x, me.y) else 0.0
-        feats["is_bomb"] = 1.0 if atype == "bomb" else 0.0
-        feats["hazard"] = 1.0 if immediate_hazard(tx, ty, wrld) else 0.0
-
-        # Near wall
-        feats["near_wall"] = 1.0 if any(
-            wrld.wall_at(nx, ny) for nx, ny in neighbors8(me.x, me.y, wrld)
-        ) else 0.0
-
-        # Near enemy
-        enemy_close = False
-        for dx in range(-3, 4):
-            for dy in range(-3, 4):
-                nx, ny = me.x + dx, me.y + dy
-                if in_bounds(nx, ny, wrld) and wrld.monsters_at(nx, ny):
-                    enemy_close = True
-                    break
-            if enemy_close:
+        # Move randomly or toward safe open cell (for exploration)
+        possible_moves = [(0, 0)] + DIRS8
+        random.shuffle(possible_moves)
+        for dx, dy in possible_moves:
+            nx, ny = me.x + dx, me.y + dy
+            if in_bounds(nx, ny, wrld) and not wrld.wall_at(nx, ny):
+                self.move(dx, dy)
                 break
-        feats["near_enemy"] = 1.0 if enemy_close else 0.0
 
-        # Distance to nearest enemy (inverse)
-        min_enemy_dist = INF
-        for ex in range(wrld.width()):
-            for ey in range(wrld.height()):
-                if wrld.monsters_at(ex, ey):
-                    dist = max(abs(me.x - ex), abs(me.y - ey))
-                    if dist < min_enemy_dist:
-                        min_enemy_dist = dist
-        feats["dist_to_enemy"] = 1.0 / (1.0 + min_enemy_dist) if min_enemy_dist < INF else 0.0
+        # Update cooldown
+        if self._bomb_cooldown > 0:
+            self._bomb_cooldown -= 1
 
-        # Distance to nearest bomb (inverse)
-        min_bomb_dist = INF
-        for bx in range(wrld.width()):
-            for by in range(wrld.height()):
-                if wrld.bomb_at(bx, by):
-                    dist = max(abs(me.x - bx), abs(me.y - by))
-                    if dist < min_bomb_dist:
-                        min_bomb_dist = dist
-        feats["dist_to_bomb"] = 1.0 / (1.0 + min_bomb_dist) if min_bomb_dist < INF else 0.0
+        # Reset active bomb flag
+        if self._bomb_active:
+            any_bombs = any(
+                wrld.bomb_at(x, y)
+                for x in range(wrld.width())
+                for y in range(wrld.height())
+            )
+            if not any_bombs:
+                self._bomb_active = False
 
-        return feats
+        # ---------------- Q-learning update ----------------
+        reward = self.compute_reward(wrld, me)
+        if self._last_feats:
+            f_next = self.q_bomb.features(wrld, me)
+            done = (
+                wrld.time <= 0
+                or not any(c is self for chars in wrld.characters.values() for c in chars)
+            )
+            self.q_bomb.update(reward, self._last_feats, f_next, done=done)
 
+        if TRAINING:
+            self.q_bomb.save_weights()
 
-    def _compute_reward(self, prev_wrld, curr_wrld, prev_action):
-        me_prev = prev_wrld.me(self)
-        me_curr = curr_wrld.me(self)
-        if me_prev and me_curr is None:
-            return R_DEATH
-        if me_curr and curr_wrld.exit_at(me_curr.x, me_curr.y):
-            return R_EXIT
+    # ----------------------------------------------------------
+    def compute_reward(self, wrld, me):
+        """Reward shaping for bomb learning, compatible with world end conditions."""
+        reward = -1.0  # small time penalty
 
-        reward = R_STEP
-        atype, _, _ = prev_action
+        # +100 for reaching the exit
+        if wrld.exit_at(me.x, me.y):
+            reward += 1000.0
 
-        
-        if me_prev and me_curr:
-            # Euclidean distance ignoring walls
-            exits = [(x, y) for x in range(curr_wrld.width())
-                            for y in range(curr_wrld.height())
-                            if curr_wrld.exit_at(x, y)]
-            if exits:
-                ex, ey = min(exits, key=lambda e: ((me_curr.x - e[0])**2 + (me_curr.y - e[1])**2)**0.5)
-                d_before = ((me_prev.x - ex)**2 + (me_prev.y - ey)**2)**0.5
-                d_after  = ((me_curr.x - ex)**2 + (me_curr.y - ey)**2)**0.5
-                delta_d = d_before - d_after
-                if delta_d > 0:
-                    reward += R_MOVE_TOWARDS_EXIT * delta_d
+        # +50 for hitting monsters with explosion
+        for y in range(wrld.height()):
+            for x in range(wrld.width()):
+                if wrld.explosion_at(x, y) and wrld.monsters_at(x, y):
+                    reward += 50.0
 
-        # --- Reachability improvement reward ---
-        if me_prev and me_curr:
-            before = reachable_cells(me_prev.x, me_prev.y, prev_wrld)
-            after  = reachable_cells(me_curr.x, me_curr.y, curr_wrld)
-            delta  = after - before
-            if delta > 0:
-                reward += R_BOMB_CLEAR_PATH * delta
+        # -200 if this character is missing from the world (i.e., dead)
+        still_alive = any(
+            c is self for chars in wrld.characters.values() for c in chars
+        )
+        if not still_alive:
+            reward -= 1000.0
 
-        if atype == "bomb":
-            # Reward wall destruction
-            wb = sum(prev_wrld.wall_at(x,y) for x in range(prev_wrld.width()) for y in range(prev_wrld.height()))
-            wa = sum(curr_wrld.wall_at(x,y) for x in range(curr_wrld.width()) for y in range(curr_wrld.height()))
-            if wa < wb: reward += R_BOMB_WALL * (wb - wa)
-            # Reward clearing path
-            if not path_exists_to_exit(prev_wrld, me_prev.x, me_prev.y) and path_exists_to_exit(curr_wrld, me_prev.x, me_prev.y):
-                reward += R_CLEAR_PATH
-            # Reward monster kills
-            mb = sum(bool(prev_wrld.monsters_at(x,y)) for x in range(prev_wrld.width()) for y in range(prev_wrld.height()))
-            ma = sum(bool(curr_wrld.monsters_at(x,y)) for x in range(curr_wrld.width()) for y in range(curr_wrld.height()))
-            if ma < mb: reward += R_MONSTER_KILL*(mb-ma)
+        # -50 if time nearly runs out
+        if wrld.time <= 2:
+            reward -= 50.0
 
         return reward
-
-    def _should_offer_bomb(self, wrld):
-        me = wrld.me(self)
-        if immediate_hazard(me.x, me.y, wrld): return False
-        if not path_exists_to_exit(wrld, me.x, me.y): return True
-        return False
-
-    # ---------------- Persistence ---------------- #
-    def save_weights(self):
-        with open(WEIGHT_FILE, "w") as f:
-            json.dump(self.weights, f)
-        print(f"[QL] Saved weights to {WEIGHT_FILE}")
-
-    def load_weights(self):
-        with open(WEIGHT_FILE) as f:
-            data = json.load(f)
-        self.weights = defaultdict(float, {k: float(v) for k,v in data.items()})
 
