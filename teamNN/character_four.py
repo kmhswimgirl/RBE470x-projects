@@ -111,11 +111,11 @@ class CharacterFour(CharacterEntity):
                         if future_distance == 0:
                             future_penalty += 40000  # same square
                         elif future_distance == 1:
-                            future_penalty += 15000  # adjacent
+                            future_penalty += 20000  # adjacent
                         elif future_distance == 2:
-                            future_penalty += 2550   # under rad = 2
+                            future_penalty += 3000   # under rad = 2
                         elif future_distance == 3:
-                            future_penalty += 200    # not that bad of a threat
+                            future_penalty += 100    # not that bad of a threat
                     
                     if self.is_in_corridor(wrld, pos) and distance_to_monster <= 6:
                         monster_penalty += 500  # small corridors = not good
@@ -125,7 +125,7 @@ class CharacterFour(CharacterEntity):
                         monster_penalty += 800  
                     
                     if self.trap_scenario(wrld, pos, monster_pos):
-                        monster_penalty += 1000
+                        monster_penalty += 4000
         
         # progress points to hopefully prevent oscillating
         progress_bonus = 0
@@ -163,7 +163,7 @@ class CharacterFour(CharacterEntity):
                     distance_to_monster = abs(to_pos[0] - x) + abs(to_pos[1] - y)
                     
                     if distance_to_monster == 0:
-                        monster_cost += 25000  # die
+                        monster_cost += 30000  # die
                     elif distance_to_monster == 1:
                         monster_cost += 10000  # inside circle
                     elif distance_to_monster == 2:
