@@ -87,7 +87,6 @@ class TestCharacter(CharacterEntity):
                     path = path[1:]
                 elif wrld.explosion_at(move[0], move[1]):
                     self.move(0, 0)
-                    # print("\n\nnext step in explosion\n\n")
                     # print(move)
                 # place a bomb if the next move is a wall
                 else:
@@ -220,7 +219,6 @@ class TestCharacter(CharacterEntity):
                             and len(self.get_explosion_location(wrld)) == 0:
                         char.place_bomb()
                         bomb_info_dict[next_location] = new_wrld.bomb_time +1
-                        print("Imaginary bomb")
                     else:
                         continue
 
@@ -235,12 +233,12 @@ class TestCharacter(CharacterEntity):
                 cur_q_dict[next_location] = q_val
 
         # collect s' and reward
-        print(cur_q_dict)
+        # print(cur_q_dict)
         # select the key with the maximum Q-value in a type-safe way
         current_move = max(cur_q_dict.items(), key=lambda kv: kv[1])[0]
         current_reward = cur_reward_dict[current_move]
         current_q = cur_q_dict[current_move]
-        print(f"Current Pos: {(self.x, self.y)}\tDecided Move: {current_move}")
+        # print(f"Current Pos: {(self.x, self.y)}\tDecided Move: {current_move}")
         # copy bomb
         if bomb_info_dict[current_move] != math.inf:
             self.place_bomb()
@@ -383,11 +381,9 @@ class TestCharacter(CharacterEntity):
         if len(bombLoc) == 0:
             return bool(wrld.explosion_at(x,y))
         bombLoc = self.get_bomb_location(wrld)[0]
-        print(f"Bomb time: {self.my_bomb_timer}")
 
         # run if about to blow up
         if self.my_bomb_timer <= 1:
-            print("RUNNNNNNNNN")
             if x < (bombLoc[0] + wrld.expl_range + 1) and x > (bombLoc[0] - wrld.expl_range - 1) and y == bombLoc[1]:
                 return 1
             if y < (bombLoc[1] + wrld.expl_range + 1) and y > (bombLoc[1] - wrld.expl_range - 1) and x == bombLoc[0]:

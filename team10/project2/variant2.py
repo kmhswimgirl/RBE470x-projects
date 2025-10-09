@@ -1,6 +1,6 @@
 # This is necessary to find the main code
 import sys
-sys.path.insert(0, '../../bomberman')
+sys.path.insert(0, '../../Bomberman')
 sys.path.insert(1, '..')
 
 # Import necessary stuff
@@ -10,7 +10,7 @@ from monsters.stupid_monster import StupidMonster
 from agent import TestCharacter
 
 # TODO This is your code!
-sys.path.insert(1, '../teamNN')
+sys.path.insert(1, '../team10')
 
 # Create the game
 random.seed() # TODO Change this if you want different random choices
@@ -23,7 +23,7 @@ g.add_monster(StupidMonster("stupid", # name
 # TODO Add your character
 g.add_character(TestCharacter("me", # name
                               "C",  # avatar
-                              0, 0, 1  # position
+                              0, 0, 2  # position
 ))
 
 # Run!
