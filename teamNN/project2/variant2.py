@@ -7,7 +7,7 @@ sys.path.insert(1, '..')
 import random
 from game import Game
 from monsters.stupid_monster import StupidMonster
-from MDPwBomb import TestCharacter
+from agent import TestCharacter
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
@@ -23,7 +23,7 @@ g.add_monster(StupidMonster("stupid", # name
 # TODO Add your character
 g.add_character(TestCharacter("me", # name
                               "C",  # avatar
-                              0, 0  # position
+                              0, 0, 2  # position
 ))
 
 # Run!

@@ -1,26 +1,30 @@
 # This is necessary to find the main code
 import sys
-sys.path.insert(0, '../../Bomberman')
+sys.path.insert(0, '../../bomberman')
 sys.path.insert(1, '..')
-sys.path.insert(1, '../teamNN')
 
 # Import necessary stuff
-from game import Game
 import random
+from game import Game
+from monsters.stupid_monster import StupidMonster
+from agent import TestCharacter
 
 # TODO This is your code!
 sys.path.insert(1, '../teamNN')
-from FakeCharacter import ApproxQLearningCharacter, TRAINING
-from monsters.stupid_monster import StupidMonster
 
-for i in range(10):  # number of training games
-    random.seed() # TODO Change this if you want different random choices
-    print(f"\n[Training Run {i+1}/50]")
-    g = Game.fromfile('/Users/dhruvmadan/RBE4701/RBE470x-projects/teamNN/map.txt')
-    agent = ApproxQLearningCharacter("me", "Q", 0, 0)
-    g.add_character(agent)
-    g.go(1)  # Run full game
-    # Save weights after the game finishes
-    if TRAINING:
-        agent.save_weights()
+# Create the game
+random.seed() # TODO Change this if you want different random choices
+g = Game.fromfile('map.txt')
+g.add_monster(StupidMonster("stupid", # name
+                            "S",      # avatar
+                            3, 9      # position
+))
 
+# TODO Add your character
+g.add_character(TestCharacter("me", # name
+                              "C",  # avatar
+                              0, 0, 1  # position
+))
+
+# Run!
+g.go(1)
